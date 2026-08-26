@@ -59,6 +59,8 @@ export async function kieGenerate(env: Env, input: GenerateInput): Promise<strin
     customMode: custom,
     instrumental: input.instrumental,
     model: input.model,
+    // kie.ai requires callBackUrl (422 without it) even though we poll record-info instead
+    callBackUrl: 'https://song-auto.anugooltippon.workers.dev/api/health',
   };
   if (custom) {
     if (input.style) body.style = input.style;
