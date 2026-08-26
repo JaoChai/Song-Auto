@@ -8,7 +8,7 @@
     "not_found_handling": "single-page-application"
   },
   "d1_databases": [
-    { "binding": "DB", "database_name": "song-auto-db", "database_id": "PLACEHOLDER_CREATED_IN_TASK_11", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "song-auto-db", "database_id": "55517c62-7244-4606-a109-4ee1f4b84ffe", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [
     { "binding": "AUDIO", "bucket_name": "song-audio" }
