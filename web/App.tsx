@@ -43,7 +43,7 @@ function Studio({
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // keep active song object fresh after polls update the list; autoplay on completion
+  // autoplay when the active song finishes generating
   const wasPending = useRef(false);
   const activeFresh = active ? songs.find((s) => s.id === active.id) ?? active : null;
   useEffect(() => {
@@ -60,7 +60,6 @@ function Studio({
     const url = songAudioUrl(song);
     if (!url || !audioRef.current) return;
     if (active?.id === song.id && audioRef.current.src.includes(song.r2Key!)) {
-      // same track → just toggle
       if (audioRef.current.paused) void audioRef.current.play();
       else audioRef.current.pause();
       return;
@@ -85,33 +84,19 @@ function Studio({
         onEnded={() => setIsPlaying(false)}
       />
 
-      {/* top bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between px-4 md:px-8">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff">
-              <path d="M9 18V5l12-2v13" strokeLinecap="round" strokeLinejoin="round" stroke="#fff" strokeWidth="1.5" fill="none" />
-              <circle cx="6" cy="18" r="3" fill="#fff" />
-              <circle cx="18" cy="16" r="3" fill="#fff" />
-            </svg>
-          </div>
-          <span className="font-semibold tracking-tight">Song-Auto</span>
-          <span className="ml-1 rounded border px-1.5 py-0.5 text-[10px] font-medium" style={{ borderColor: 'rgba(255,255,255,0.14)', color: '#a78bfa' }}>
-            V5
-          </span>
-        </div>
-        <span className="text-xs" style={{ color: 'var(--color-text-dim)' }}>
-          {songs.length} เพลงในคลัง
+      {/* header */}
+      <header className="mx-auto flex h-16 w-full max-w-6xl shrink-0 items-center justify-between px-4 md:px-6">
+        <span className="text-[15px] font-semibold tracking-tight">
+          Song<span style={{ color: 'var(--accent)' }}>-</span>Auto
+        </span>
+        <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+          {songs.length} เพลง
         </span>
       </header>
 
-      {/* main split */}
-      <div className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 gap-6 px-4 pb-4 md:px-6">
-        {/* left: create */}
-        <aside className="w-full shrink-0 md:w-[380px] lg:w-[420px]">
+      {/* bento split */}
+      <div className="mx-auto flex w-full min-h-0 max-w-6xl flex-1 gap-5 px-4 pb-5 md:px-6">
+        <aside className="w-full shrink-0 md:w-[380px]">
           <CreatePanel
             onCreated={(song) => {
               upsert(song);
@@ -121,9 +106,8 @@ function Studio({
           />
         </aside>
 
-        {/* right: library */}
         <main className="min-w-0 flex-1 overflow-y-auto pr-1">
-          <h2 className="mb-4 text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-dim)' }}>
+          <h2 className="mb-4 text-[13px] font-medium uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
             Library
           </h2>
           <LibraryGrid

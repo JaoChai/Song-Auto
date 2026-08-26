@@ -29,49 +29,42 @@ export function PlayerBar({ song, isPlaying, audioRef }: Props) {
   const progress = total > 0 ? (current / total) * 100 : 0;
 
   return (
-    <footer className="glass sticky bottom-0 z-10 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }} aria-label="เครื่องเล่นเพลง">
-      {/* progress line on top edge */}
-      <div className="h-[3px] w-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
-        <div
-          className="h-full transition-[width] duration-150"
-          style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#7c3aed,#6366f1)' }}
-        />
-      </div>
-
-      <div className="mx-auto flex h-[76px] max-w-6xl items-center gap-4 px-4 md:px-6">
-        {/* play button */}
+    <footer
+      className="sticky bottom-0 z-10 border-t"
+      style={{ background: 'rgba(13,13,15,0.85)', backdropFilter: 'blur(16px)', borderColor: 'var(--border)' }}
+      aria-label="เครื่องเล่นเพลง"
+    >
+      <div className="mx-auto flex h-[72px] max-w-6xl items-center gap-4 px-4 md:px-6">
         <button
           type="button"
           onClick={toggle}
           disabled={!song}
           aria-label={isPlaying ? 'หยุดชั่วคราว' : 'เล่น'}
-          className="pressable flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full shadow-[0_6px_24px_rgba(124,58,237,0.45)] disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
-          style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }}
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
+          style={{ background: 'var(--accent)', color: '#052e12' }}
         >
           {isPlaying ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
             </svg>
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" className="ml-0.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" className="ml-0.5">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
 
-        {/* title + times */}
-        <div className="w-40 shrink-0 md:w-56">
-          <p className={`truncate text-sm font-medium ${song ? '' : 'opacity-40'}`}>
+        <div className="w-40 shrink-0 md:w-52">
+          <p className={`truncate text-sm font-medium ${song ? '' : 'opacity-35'}`}>
             {song?.title ?? 'ไม่มีเพลงที่เลือก'}
           </p>
-          <p className="truncate text-xs" style={{ color: 'var(--color-text-dim)' }}>
+          <p className="truncate text-xs" style={{ color: 'var(--text-3)' }}>
             {song?.tags || song?.style || '—'}
           </p>
         </div>
 
-        {/* seek */}
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="w-10 text-right text-xs tabular-nums" style={{ color: 'var(--color-text-dim)' }}>
+          <span className="w-9 text-right text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
             {fmtDuration(current)}
           </span>
           <input
@@ -82,10 +75,10 @@ export function PlayerBar({ song, isPlaying, audioRef }: Props) {
             onChange={seek}
             disabled={!song || !total}
             aria-label="ตำแหน่งเพลง"
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full disabled:cursor-not-allowed [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
-            style={{ background: `linear-gradient(to right,#7c3aed ${progress}%, rgba(255,255,255,0.1) 0)` }}
+            className="h-1 w-full cursor-pointer appearance-none rounded-full disabled:cursor-not-allowed [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            style={{ background: `linear-gradient(to right,var(--accent) ${progress}%, var(--surface-hover) 0)` }}
           />
-          <span className="w-10 text-xs tabular-nums" style={{ color: 'var(--color-text-dim)' }}>
+          <span className="w-9 text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
             {fmtDuration(total || (song?.duration ?? null))}
           </span>
         </div>
