@@ -18,5 +18,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"],
-  "exclude": ["tests/auth.test.ts", "tests/kie.test.ts"]
+  "exclude": ["src/worker/auth.ts", "tests/auth.test.ts", "tests/kie.test.ts"]
 }
