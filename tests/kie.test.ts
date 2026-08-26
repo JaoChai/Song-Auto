@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateGenerate, kieGenerate, kiePollTask, type GenerateInput, type Env } from '../src/worker/kie';
+import { validateGenerate, kieGenerate, kiePollTask, type GenerateInput } from '../src/worker/kie';
+import type { Env } from '../src/worker/types';
 
 const env: Env = { DB: {} as any, AUDIO: {} as any, KIE_API_KEY: 'test-key', APP_PASSWORD: 'pw' };
 
@@ -191,6 +192,6 @@ describe('kiePollTask', () => {
     await kiePollTask(env, 'abc');
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.kie.ai/api/v1/generate/record-info?taskId=abc');
-    expect((init as RequestInit).headers?.Authorization ?? (init as any).headers?.Authorization).toBe('Bearer test-key');
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe('Bearer test-key');
   });
 });

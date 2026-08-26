@@ -18,7 +18,6 @@ describe('auth', () => {
 
   it('200 with valid signed cookie (set via helper like the login route does)', async () => {
     const secret = 'pw';
-    const c: any = { req: { url: 'http://x/', headers: new Headers() }, res: undefined };
     // simulate what POST /api/auth does:
     const app = new Hono<{ Bindings: { APP_PASSWORD: string } }>();
     app.post('/login', async (ctx) => {
