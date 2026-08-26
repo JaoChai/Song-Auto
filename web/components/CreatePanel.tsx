@@ -55,6 +55,11 @@ export function CreatePanel({ onCreated }: Props) {
         duration: null,
         createdAt: new Date().toISOString(),
       });
+      setLyrics('');
+      setStyle('');
+      setTitle('');
+      setInstrumental(false);
+      setNegativeTags('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้างเพลงไม่สำเร็จ');
     } finally {
@@ -62,123 +67,159 @@ export function CreatePanel({ onCreated }: Props) {
     }
   };
 
-  const inputStyle = {
-    background: 'var(--color-background)',
-    borderColor: 'var(--color-border)',
-  };
-  const counter = 'mt-1 text-right text-xs';
-
   return (
-    <form
-      onSubmit={submit}
-      className="flex flex-col gap-4 overflow-y-auto rounded-xl border p-6"
-      style={{ background: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
-    >
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Create</h2>
-        <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ background: 'var(--color-border)', color: '#c7d2fe' }}>
-          Custom · V5
-        </span>
+    <form className="glass flex h-full flex-col gap-5 overflow-y-auto rounded-2xl p-6">
+      {/* header */}
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">Create a song</h2>
+        <p className="mt-0.5 text-sm" style={{ color: 'var(--color-text-dim)' }}>
+          Custom mode · Suno V5
+        </p>
       </div>
 
+      {/* Lyrics */}
       <div>
-        <label htmlFor="lyrics" className="mb-1 block text-sm font-medium">
-          Lyrics <span className="font-normal" style={{ color: '#94a3b8' }}>(ใช้ [Verse]/[Chorus] ได้)</span>
-        </label>
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <label htmlFor="lyrics" className="text-sm font-medium">
+            Lyrics
+          </label>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--color-text-dim)' }}>
+            {lyrics.length.toLocaleString()} / {LYRICS_MAX.toLocaleString()}
+          </span>
+        </div>
         <textarea
           id="lyrics"
           value={lyrics}
           onChange={(e) => setLyrics(e.target.value)}
-          rows={8}
+          rows={9}
           disabled={instrumental}
           maxLength={LYRICS_MAX}
-          placeholder={'[Verse 1]\n...\n\n[Chorus]\n...'}
-          className="w-full resize-y rounded-lg border px-3 py-2 text-base outline-none transition-colors duration-200 focus:ring-2 disabled:opacity-40"
-          style={inputStyle}
+          placeholder={'[Verse 1]\nWrite your words here…\n\n[Chorus]\nSoar above the noise'}
+          className="w-full resize-y rounded-xl border px-4 py-3 text-[15px] leading-relaxed outline-none transition-colors duration-200 placeholder:text-white/25 focus:border-[#7c3aed]/60 focus:ring-2 focus:ring-[#7c3aed]/30 disabled:opacity-35"
         />
-        <p className={counter} style={{ color: '#94a3b8' }}>
-          {lyrics.length}/{LYRICS_MAX}
-        </p>
       </div>
 
-      <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm">
-        <input
-          type="checkbox"
-          checked={instrumental}
-          onChange={(e) => setInstrumental(e.target.checked)}
-          className="h-4 w-4 accent-[#22c55e]"
-        />
-        Instrumental (ไม่มีคำร้อง)
-      </label>
+      {/* Instrumental toggle */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={instrumental}
+        onClick={() => setInstrumental((v) => !v)}
+        className="pressable flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3"
+        style={{ borderColor: instrumental ? '#7c3aed66' : 'rgba(255,255,255,0.08)' }}
+      >
+        <span className="flex flex-col items-start">
+          <span className="text-sm font-medium">Instrumental</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-dim)' }}>
+            เพลงประกอบ ไม่มีคำร้อง
+          </span>
+        </span>
+        <span
+          className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200"
+          style={{ background: instrumental ? 'var(--color-primary)' : 'rgba(255,255,255,0.12)' }}
+        >
+          <span
+            className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200"
+            style={{ transform: instrumental ? 'translateX(22px)' : 'translateX(2px)' }}
+          />
+        </span>
+      </button>
 
+      {/* Style */}
       <div>
-        <label htmlFor="style" className="mb-1 block text-sm font-medium">
-          Style of Music
-        </label>
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <label htmlFor="style" className="text-sm font-medium">
+            Style of music
+          </label>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--color-text-dim)' }}>
+            {style.length} / {STYLE_MAX}
+          </span>
+        </div>
         <input
           id="style"
           value={style}
           onChange={(e) => setStyle(e.target.value)}
           maxLength={STYLE_MAX}
-          placeholder="lo-fi hip hop, mellow, vinyl crackle"
-          className="min-h-[44px] w-full rounded-lg border px-3 text-base outline-none transition-colors duration-200 focus:ring-2"
-          style={inputStyle}
+          placeholder="dream pop, ethereal, lush reverb"
+          className="min-h-[46px] w-full rounded-xl border px-4 text-[15px] outline-none transition-colors duration-200 placeholder:text-white/25 focus:border-[#7c3aed]/60 focus:ring-2 focus:ring-[#7c3aed]/30"
         />
-        <p className={counter} style={{ color: '#94a3b8' }}>
-          {style.length}/{STYLE_MAX}
-        </p>
       </div>
 
+      {/* Title */}
       <div>
-        <label htmlFor="title" className="mb-1 block text-sm font-medium">
-          Title
-        </label>
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <label htmlFor="title" className="text-sm font-medium">
+            Title
+          </label>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--color-text-dim)' }}>
+            {title.length} / {TITLE_MAX}
+          </span>
+        </div>
         <input
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={TITLE_MAX}
           placeholder="ชื่อเพลง"
-          className="min-h-[44px] w-full rounded-lg border px-3 text-base outline-none transition-colors duration-200 focus:ring-2"
-          style={inputStyle}
+          className="min-h-[46px] w-full rounded-xl border px-4 text-[15px] outline-none transition-colors duration-200 placeholder:text-white/25 focus:border-[#7c3aed]/60 focus:ring-2 focus:ring-[#7c3aed]/30"
         />
-        <p className={counter} style={{ color: '#94a3b8' }}>
-          {title.length}/{TITLE_MAX}
-        </p>
       </div>
 
-      <details className="text-sm">
-        <summary className="cursor-pointer select-none" style={{ color: 'var(--color-accent)' }}>
-          Exclude styles (ไม่เอาสไตล์ไหน)
+      {/* Advanced: exclude styles — progressive disclosure */}
+      <details className="group rounded-xl border px-4 py-3" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <summary
+          className="cursor-pointer select-none text-sm font-medium list-none"
+          style={{ color: 'var(--color-text-dim)' }}
+        >
+          <span className="inline-flex w-full items-center justify-between">
+            Exclude styles
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="transition-transform duration-200 group-open:rotate-180">
+              <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </summary>
         <input
           value={negativeTags}
           onChange={(e) => setNegativeTags(e.target.value)}
-          placeholder="Heavy Metal, Upbeat Drums"
-          className="mt-2 min-h-[44px] w-full rounded-lg border px-3 text-base outline-none transition-colors duration-200 focus:ring-2"
-          style={inputStyle}
+          placeholder="heavy metal, upbeat drums"
+          className="mt-3 min-h-[44px] w-full rounded-lg border bg-transparent px-3 text-sm outline-none transition-colors duration-200 placeholder:text-white/20 focus:border-[#7c3aed]/60"
         />
       </details>
 
       {error && (
-        <p role="alert" className="text-sm" style={{ color: 'var(--color-destructive)' }}>
+        <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(220,38,38,0.12)', color: '#f87171' }}>
           {error}
         </p>
       )}
 
-      {!canSubmit && !busy && (
-        <p className="text-xs" style={{ color: '#94a3b8' }}>
-          กรอก Style + Title{!instrumental && ' + Lyrics'} เพื่อสร้างเพลง
-        </p>
-      )}
-
+      {/* Submit */}
       <button
         type="submit"
         disabled={!canSubmit}
-        className="min-h-[44px] w-full cursor-pointer rounded-lg font-semibold transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ background: 'var(--color-accent)', color: '#0f172a' }}
+        className="pressable mt-auto min-h-[52px] w-full cursor-pointer rounded-xl text-base font-semibold shadow-[0_8px_30px_rgba(124,58,237,0.35)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+        style={{
+          background: canSubmit
+            ? 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)'
+            : 'rgba(255,255,255,0.08)',
+          color: '#fff',
+        }}
       >
-        {busy ? '⏳ กำลังส่งคำขอ…' : '🎵 Create'}
+        {busy ? (
+          <span className="inline-flex items-center gap-2">
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
+              <path d="M22 12a10 10 0 0 0-10-10" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+            Creating…
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            Create song
+          </span>
+        )}
       </button>
     </form>
   );
