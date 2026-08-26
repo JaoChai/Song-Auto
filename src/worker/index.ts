@@ -4,6 +4,7 @@ import { issueSession } from './auth';
 import { authMiddleware } from './auth';
 import type { Env } from './types';
 import { createSong, getTask, listSongs } from './routes';
+import { getAudio } from './audio';
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -24,11 +25,14 @@ app.post('/api/auth', async (c: Context<{ Bindings: Env }>) => {
   return c.json({ ok: true });
 });
 
-// all other /api routes require a valid signed cookie
+// all protected routes require a valid signed cookie
 app.use('/api/*', authMiddleware);
+app.use('/audio/*', authMiddleware);
 
 app.post('/api/generate', createSong);
 app.get('/api/tasks/:id', getTask);
 app.get('/api/songs', listSongs);
+// audio route also sits behind authMiddleware (path starts with /audio, not exempted)
+app.get('/audio/:key', getAudio);
 
 export default { fetch: app.fetch };
