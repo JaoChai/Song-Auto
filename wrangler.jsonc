@@ -1,0 +1,17 @@
+{
+  "name": "song-auto",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-08-22",
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "song-auto-db", "database_id": "PLACEHOLDER_CREATED_IN_TASK_11", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "AUDIO", "bucket_name": "song-audio" }
+  ],
+  "observability": { "enabled": true }
+}
