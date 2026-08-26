@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+/* Design tokens from design-system/song-auto/MASTER.md */
+:root {
+  --color-primary: #1e1b4b;
+  --color-on-primary: #ffffff;
+  --color-secondary: #4338ca;
+  --color-accent: #22c55e;
+  --color-background: #0f0f23;
+  --color-foreground: #f8fafc;
+  --color-muted: #27273b;
+  --color-border: #312e81;
+  --color-destructive: #ef4444;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
