@@ -18,7 +18,7 @@ export const lastSql = { value: '' };
  * - INSERT INTO songs (...) VALUES (?, ..., ?)   → 13 binds, id first
  * - SELECT * FROM songs WHERE id = ?             → 1 bind
  * - UPDATE songs SET status='FAILED', error=?    → 2 binds (error, id)
- * - UPDATE songs SET status='SUCCESS', ...       → 4 binds (r2Key, tags, duration, id)
+ * - UPDATE songs SET status='SUCCESS', ...       → 5 binds (r2Key, imageKey, tags, duration, id)
  * - SELECT * FROM songs ORDER BY created_at DESC → 0 binds, all()
  */
 const makeDb = (rows: Row[] = []) => {
@@ -54,9 +54,9 @@ const makeDb = (rows: Row[] = []) => {
                 Object.assign(find(id)!, { status: 'FAILED', error });
                 return { success: true };
               }
-              // SUCCESS update: (r2Key, tags, duration, id)
-              const [r2_key, tags, duration, id] = args as [string, string | null, number | null, string];
-              Object.assign(find(id)!, { status: 'SUCCESS', r2_key, tags, duration, error: null });
+              // SUCCESS update: (r2Key, imageKey, tags, duration, id)
+              const [r2_key, image_key, tags, duration, id] = args as [string, string | null, string | null, number | null, string];
+              Object.assign(find(id)!, { status: 'SUCCESS', r2_key, image_key, tags, duration, error: null });
               return { success: true };
             },
           };
@@ -335,5 +335,51 @@ describe('API routes', () => {
     expect(body.songs.map((s) => s.id)).toEqual(['a', 'b']);
     expect(body.songs[0].createdAt).toBe('2026-08-25T00:00:00.000Z');
     expect(body.songs[0].taskId).toBe('t1'); // camelCase mapping verified
+  });
+
+  it('GET /api/tasks/:id: SUCCESS — stores the cover as {id}.jpg and sets image_key', async () => {
+    const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({
+      taskId: 'task-1',
+      status: 'SUCCESS',
+      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano', imageUrl: 'https://cdn/1.jpg' }] },
+    });
+
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    const body = await res.json() as { status: string; song: SongRow };
+
+    expect(body.status).toBe('SUCCESS');
+    expect(body.song.imageKey).toBe('s1.jpg');
+    expect(data[0].image_key).toBe('s1.jpg');
+    expect(store.get('s1.jpg')).toBeInstanceOf(Uint8Array);
+    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+  });
+
+  it('GET /api/tasks/:id: SUCCESS — cover fetch failure leaves image_key null but keeps the song', async () => {
+    const { env, data, store } = makeEnv([rowFixture('s2', 'task-2', '2026-08-26T00:00:00.000Z')]);
+    const cookie = await cookieFor('pw');
+
+    // route record-info to kie, the .jpg to a throw, everything else to the mp3 bytes
+    const poll = stubKiePoll({
+      taskId: 'task-2', status: 'SUCCESS',
+      response: { sunoData: [{ id: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 90, tags: 'pop', imageUrl: 'https://cdn/2.jpg' }] },
+    });
+    const dl = stubMp3Download();
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes('/api/v1/generate/record-info')) return poll() as unknown as Response;
+      if (u.endsWith('.jpg')) throw new Error('cover unreachable');
+      return dl() as unknown as Response;
+    }));
+
+    const res = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    const body = await res.json() as { status: string; song: SongRow };
+
+    expect(body.status).toBe('SUCCESS');
+    expect(body.song.imageKey).toBeNull();
+    expect(data[0].status).toBe('SUCCESS');
+    expect(store.get('s2.mp3')).toBeInstanceOf(Uint8Array);
+    expect(store.has('s2.jpg')).toBe(false);
   });
 });

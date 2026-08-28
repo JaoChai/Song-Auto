@@ -102,6 +102,7 @@ export interface TrackInfo {
   audioUrl: string;
   duration: number | null;
   tags: string | null;
+  imageUrl: string | null;
 }
 
 /**
@@ -142,6 +143,7 @@ export async function kiePollTask(env: Env, taskId: string): Promise<KiePoll & {
       audioUrl: first?.audioUrl ?? '',
       duration: typeof first?.duration === 'number' ? first.duration : null,
       tags: typeof first?.tags === 'string' ? first.tags : null,
+      imageUrl: typeof first?.imageUrl === 'string' ? first.imageUrl : null,
     };
     return { kind: 'PENDING', track };
   }

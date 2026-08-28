@@ -165,7 +165,7 @@ describe('kiePollTask', () => {
       },
     });
     const res = await kiePollTask(env, 't');
-    expect(res.track).toEqual({ audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano' });
+    expect(res.track).toEqual({ audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano', imageUrl: null });
   });
 
   it('envelope code !== 200 → TRANSIENT with msg in note', async () => {
@@ -193,5 +193,35 @@ describe('kiePollTask', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.kie.ai/api/v1/generate/record-info?taskId=abc');
     expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe('Bearer test-key');
+  });
+});
+
+describe('kiePollTask cover art', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('extracts imageUrl from the first sunoData item', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({
+        code: 200, msg: 'ok',
+        data: {
+          status: 'SUCCESS',
+          response: { sunoData: [{ audioUrl: 'https://x/a.mp3', duration: 120, tags: 'pop', imageUrl: 'https://x/a.jpg' }] },
+        },
+      })),
+    ));
+    const res = await kiePollTask(env, 'task-1');
+    expect(res.track?.imageUrl).toBe('https://x/a.jpg');
+  });
+
+  it('yields null imageUrl when the field is absent', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({
+        code: 200, msg: 'ok',
+        data: { status: 'SUCCESS', response: { sunoData: [{ audioUrl: 'https://x/a.mp3' }] } },
+      })),
+    ));
+    const res = await kiePollTask(env, 'task-1');
+    expect(res.track?.imageUrl).toBeNull();
   });
 });

@@ -17,6 +17,7 @@ const toSongRow = (r: Record<string, unknown>): SongRow => ({
   status: r.status as SongRow['status'],
   error: (r.error as string | null) ?? null,
   r2Key: (r.r2_key as string | null) ?? null,
+  imageKey: (r.image_key as string | null) ?? null,
   duration: (r.duration as number | null) ?? null,
   createdAt: r.created_at as string,
 });
@@ -75,7 +76,7 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
 
   // SUCCESS signal: kiePollTask returns kind PENDING with a track attached.
   if (poll.track) {
-    const { audioUrl, duration, tags } = poll.track;
+    const { audioUrl, duration, tags, imageUrl } = poll.track;
     if (!audioUrl) return c(ctx).json({ status: 'PENDING', transient: true });
 
     let bytes: Uint8Array | null = null;
@@ -97,10 +98,27 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
 
     const r2Key = `${id}.mp3`;
     await ctx.env.AUDIO.put(r2Key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } });
-    await ctx.env.DB.prepare(`UPDATE songs SET status = 'SUCCESS', r2_key = ?, tags = ?, duration = ?, error = NULL WHERE id = ?`)
-      .bind(r2Key, tags ?? '', duration, id).run();
+
+    // cover art is best-effort — a failure must not fail the song
+    let imageKey: string | null = null;
+    if (imageUrl) {
+      try {
+        const coverRes = await fetch(imageUrl);
+        if (coverRes.ok) {
+          const coverBytes = new Uint8Array(await coverRes.arrayBuffer());
+          await ctx.env.AUDIO.put(`${id}.jpg`, coverBytes, { httpMetadata: { contentType: 'image/jpeg' } });
+          imageKey = `${id}.jpg`;
+        }
+      } catch {
+        // a song without cover art is fine
+      }
+    }
+
+    await ctx.env.DB.prepare(`UPDATE songs SET status = 'SUCCESS', r2_key = ?, image_key = ?, tags = ?, duration = ?, error = NULL WHERE id = ?`)
+      .bind(r2Key, imageKey, tags ?? '', duration, id).run();
     row.status = 'SUCCESS';
     row.r2_key = r2Key;
+    row.image_key = imageKey;
     row.tags = tags ?? '';
     row.duration = duration;
     row.error = null;
