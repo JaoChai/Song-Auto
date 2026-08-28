@@ -171,11 +171,12 @@
 
 ### Page Pattern
 
-**Pattern Name:** Minimal Single Column
+**Pattern Name:** Library First
 
-- **Conversion Strategy:** Single CTA focus. Large typography. Lots of whitespace. No nav clutter. Mobile-first.
-- **CTA Placement:** Center, large CTA button
-- **Section Order:** 1. Hero headline, 2. Short description, 3. Benefit bullets (3 max), 4. CTA, 5. Footer
+- **Structure:** sticky header (wordmark · search · create) → scrolling cover grid → sticky player bar
+- **Creation flow:** slide-over panel from the right (desktop) / bottom sheet (mobile)
+- **Grid:** 2 columns < 640px · 3 columns 640–1024px · 4 columns > 1024px, `max-w-6xl`
+- **Colour source:** cover artwork carries the colour; chrome stays neutral. `--accent` only on the primary button and the playing indicator.
 
 ---
 
