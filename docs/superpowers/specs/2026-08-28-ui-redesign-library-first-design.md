@@ -65,7 +65,7 @@ Inherits `design-system/song-auto/MASTER.md` unchanged in palette and typography
 
 - **Accent discipline.** `--accent` (`#22c55e`) is reserved for the primary button and the currently-playing indicator. Everything else uses neutral surface and text tokens. (Today the accent also appears on retry links, checkboxes, and the wordmark.)
 - **Cover-led colour.** Colour on the page comes from the artwork, not from the chrome — matching the `Music Streaming` guidance (`Dark #121212 + album art colours`).
-- **Motion.** Durations 150–250ms on `--ease`. The existing global `@media (prefers-reduced-motion: reduce)` block (`web/index.css:139`) already neutralises animations and transitions and is kept as-is; new motion must stay inside `animation`/`transition` so it remains covered by it.
+- **Motion.** Durations 150–250ms on `--ease`. The existing global `@media (prefers-reduced-motion: reduce)` block (`web/index.css:139`) neutralises animations and transitions; new motion must stay inside `animation`/`transition` so it remains covered by it. The block only zeroes `animation-duration`, which doesn't stop an `infinite` animation from still cycling — `.shimmer` (Task 5) is the first such case and needed `animation-iteration-count: 1 !important` added to the same block.
 - **Focus.** Every interactive element gets a visible `:focus-visible` ring in the accent colour.
 
 ### Components
