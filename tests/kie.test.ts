@@ -225,3 +225,36 @@ describe('kiePollTask cover art', () => {
     expect(res.track?.imageUrl).toBeNull();
   });
 });
+
+describe('instrumental mode', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const base = { style: 'lo-fi', title: 'Rain', model: 'V5' };
+
+  it('accepts an empty prompt when instrumental in custom mode', () => {
+    expect(validateGenerate({ ...base, prompt: '', instrumental: true })).toBeNull();
+  });
+
+  it('still rejects an empty prompt when not instrumental', () => {
+    expect(validateGenerate({ ...base, prompt: '', instrumental: false })).toBe('prompt is required');
+  });
+
+  it('still rejects an empty prompt in simple mode even when instrumental', () => {
+    expect(validateGenerate({ prompt: '', instrumental: true, model: 'V5' })).toBe('prompt is required');
+  });
+
+  it('omits prompt from the request body for instrumental custom mode', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ code: 200, msg: 'ok', data: { taskId: 'T1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, { ...base, prompt: '', instrumental: true });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.prompt).toBeUndefined();
+    expect(body.style).toBe('lo-fi');
+    expect(body.instrumental).toBe(true);
+  });
+});

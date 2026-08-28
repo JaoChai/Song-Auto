@@ -24,11 +24,16 @@ const KIE_FAILED_STATUSES = [
   'SENSITIVE_WORD_ERROR',
 ] as const;
 
+// kie only treats prompt as lyrics for custom + non-instrumental; an
+// instrumental custom-mode track is described by style + title alone.
+const promptIsOptional = (input: GenerateInput): boolean =>
+  Boolean(input.style || input.title) && input.instrumental;
+
 export function validateGenerate(input: GenerateInput): string | null {
-  if (!input.prompt || !input.prompt.trim()) return 'prompt is required';
+  if (!promptIsOptional(input) && (!input.prompt || !input.prompt.trim())) return 'prompt is required';
   const custom = Boolean(input.style || input.title);
   const promptLimit = custom ? PROMPT_LIMIT_CUSTOM : PROMPT_LIMIT_SIMPLE;
-  if (input.prompt.length > promptLimit) {
+  if (input.prompt && input.prompt.length > promptLimit) {
     return `prompt exceeds ${promptLimit} characters (${custom ? 'custom mode' : 'simple mode'})`;
   }
   if (input.style && input.style.length > STYLE_LIMIT) {
@@ -55,13 +60,13 @@ export async function kieGenerate(env: Env, input: GenerateInput): Promise<strin
 
   const custom = Boolean(input.style || input.title);
   const body: Record<string, unknown> = {
-    prompt: input.prompt,
     customMode: custom,
     instrumental: input.instrumental,
     model: input.model,
     // kie.ai requires callBackUrl (422 without it) even though we poll record-info instead
     callBackUrl: 'https://song-auto.anugooltippon.workers.dev/api/health',
   };
+  if (!promptIsOptional(input)) body.prompt = input.prompt;
   if (custom) {
     if (input.style) body.style = input.style;
     if (input.title) body.title = input.title;
