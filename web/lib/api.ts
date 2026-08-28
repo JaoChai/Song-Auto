@@ -37,11 +37,16 @@ export interface Song {
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   error: string | null;
   r2Key: string | null;
+  imageKey: string | null;
   duration: number | null;
   createdAt: string;
 }
 
-export const songAudioUrl = (s: Song): string | null => (s.r2Key ? `/audio/${s.r2Key}` : null);
+const r2Url = (key: string | null): string | null => (key ? `/audio/${key}` : null);
+
+export const songAudioUrl = (s: Song): string | null => r2Url(s.r2Key);
+
+export const songCoverUrl = (s: Song): string | null => r2Url(s.imageKey);
 
 export const fmtDuration = (sec: number | null): string => {
   if (sec === null || Number.isNaN(sec)) return '--:--';
