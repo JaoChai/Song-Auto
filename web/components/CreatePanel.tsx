@@ -143,6 +143,7 @@ export function CreatePanel({ onCreated }: Props) {
           Exclude styles (optional)
         </summary>
         <input
+          aria-label="Exclude styles"
           className="input mt-3"
           value={negativeTags}
           onChange={(e) => setNegativeTags(e.target.value)}
