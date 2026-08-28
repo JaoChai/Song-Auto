@@ -58,7 +58,7 @@ export const fmtDuration = (sec: number | null): string => {
 export const MODELS = ['V3_5', 'V4', 'V4_5', 'V4_5PLUS', 'V4_5ALL', 'V5'] as const;
 
 export interface GenerateBody {
-  prompt: string;
+  prompt?: string;
   style?: string;
   title?: string;
   instrumental: boolean;

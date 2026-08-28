@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, type GenerateBody, type Song } from '../lib/api';
+import { SpinnerIcon } from './icons';
 
 const LYRICS_MAX = 5000;
 const STYLE_MAX = 1000;
@@ -26,8 +27,8 @@ export function CreatePanel({ onCreated }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const body: GenerateBody & { customMode: true } = {
-        prompt: instrumental ? '' : lyrics,
+      const body: GenerateBody = {
+        ...(instrumental ? {} : { prompt: lyrics }),
         style,
         title,
         instrumental,
@@ -50,6 +51,7 @@ export function CreatePanel({ onCreated }: Props) {
         status: 'PENDING',
         error: null,
         r2Key: null,
+        imageKey: null,
         duration: null,
         createdAt: new Date().toISOString(),
       });
@@ -62,29 +64,9 @@ export function CreatePanel({ onCreated }: Props) {
   };
 
   return (
-    <form className="card flex h-full flex-col gap-6 p-7">
-      {/* Lyrics */}
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <label htmlFor="lyrics" className="text-sm font-medium">Lyrics</label>
-          <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
-            {lyrics.length.toLocaleString()} / {LYRICS_MAX.toLocaleString()}
-          </span>
-        </div>
-        <textarea
-          id="lyrics"
-          className="input"
-          value={lyrics}
-          onChange={(e) => setLyrics(e.target.value)}
-          rows={10}
-          disabled={instrumental}
-          maxLength={LYRICS_MAX}
-          placeholder={'[Verse 1]\n…\n\n[Chorus]\n…'}
-        />
-      </div>
-
+    <form onSubmit={submit} className="flex flex-col gap-6 p-6">
       {/* Instrumental */}
-      <label className="-mt-3 flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--text-2)' }}>
+      <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--text-2)' }}>
         <input
           type="checkbox"
           checked={instrumental}
@@ -94,12 +76,33 @@ export function CreatePanel({ onCreated }: Props) {
         Instrumental — ไม่มีคำร้อง
       </label>
 
+      {/* Lyrics */}
+      {!instrumental && (
+        <div>
+          <div className="mb-2 flex items-baseline justify-between">
+            <label htmlFor="lyrics" className="field-label" style={{ marginBottom: 0 }}>Lyrics</label>
+            <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
+              {lyrics.length.toLocaleString()} / {LYRICS_MAX.toLocaleString()}
+            </span>
+          </div>
+          <textarea
+            id="lyrics"
+            className="input"
+            value={lyrics}
+            onChange={(e) => setLyrics(e.target.value)}
+            rows={10}
+            maxLength={LYRICS_MAX}
+            placeholder={'[Verse 1]\n…\n\n[Chorus]\n…'}
+          />
+        </div>
+      )}
+
       <div className="h-px shrink-0" style={{ background: 'var(--border)' }} />
 
       {/* Style */}
       <div>
         <div className="mb-2 flex items-baseline justify-between">
-          <label htmlFor="style" className="text-sm font-medium">Style of music</label>
+          <label htmlFor="style" className="field-label" style={{ marginBottom: 0 }}>Style of music</label>
           <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
             {style.length} / {STYLE_MAX}
           </span>
@@ -117,7 +120,7 @@ export function CreatePanel({ onCreated }: Props) {
       {/* Title */}
       <div>
         <div className="mb-2 flex items-baseline justify-between">
-          <label htmlFor="title" className="text-sm font-medium">Title</label>
+          <label htmlFor="title" className="field-label" style={{ marginBottom: 0 }}>Title</label>
           <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
             {title.length} / {TITLE_MAX}
           </span>
@@ -159,10 +162,7 @@ export function CreatePanel({ onCreated }: Props) {
       >
         {busy ? (
           <>
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
-              <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
+            <SpinnerIcon className="h-4 w-4 animate-spin" />
             Creating…
           </>
         ) : (
