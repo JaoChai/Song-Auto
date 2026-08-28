@@ -58,7 +58,7 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
   };
 
   const progress = total > 0 ? (current / total) * 100 : 0;
-  const audioUrl = song ? songAudioUrl(song) : null;
+  const audioUrl = song?.status === 'SUCCESS' ? songAudioUrl(song) : null;
 
   return (
     <footer

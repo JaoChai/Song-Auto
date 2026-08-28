@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { api } from '../lib/api';
 
 export function AuthGate({ onAuthed }: { onAuthed: () => void }) {
@@ -27,10 +27,10 @@ export function AuthGate({ onAuthed }: { onAuthed: () => void }) {
         {/* wordmark */}
         <h1 className="text-center text-xl font-semibold tracking-tight">Song-Auto</h1>
         <p className="mt-1 mb-7 text-center text-sm" style={{ color: 'var(--text-2)' }}>
-          AI Music Studio · Suno V5
+          AI Music Studio
         </p>
 
-        <label htmlFor="password" className="mb-2 block text-sm font-medium">
+        <label htmlFor="password" className="field-label">
           รหัสผ่าน
         </label>
         <input
