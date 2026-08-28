@@ -17,7 +17,7 @@
   /* text */
   --text: #f5f5f7;
   --text-2: #a1a1aa;
-  --text-3: #63636b;
+  --text-3: #7c7c85;
 
   /* single accent */
   --accent: #22c55e;
@@ -129,7 +129,7 @@ textarea.input {
   to { opacity: 1; transform: none; }
 }
 .rise-in {
-  animation: riseIn 360ms var(--ease) both;
+  animation: riseIn 240ms var(--ease) both;
 }
 
 /* scrollbar — subtle */
