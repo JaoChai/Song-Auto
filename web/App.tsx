@@ -1,76 +1,63 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppHeader } from './components/AppHeader';
 import { AuthGate } from './components/AuthGate';
 import { CreatePanel } from './components/CreatePanel';
 import { LibraryGrid } from './components/LibraryGrid';
 import { PlayerBar } from './components/PlayerBar';
+import { SlideOver } from './components/SlideOver';
+import { Toast } from './components/Toast';
 import { songAudioUrl, type Song } from './lib/api';
+import { filterSongs } from './lib/filter';
 import { useSongs } from './hooks/useSongs';
 
 export default function App() {
   const { songs, loaded, authNeeded, refresh, upsert } = useSongs();
-  const [authed, setAuthed] = useState(false);
-
-  if (!authed || authNeeded) {
-    return (
-      <AuthGate
-        onAuthed={() => {
-          setAuthed(true);
-          void refresh();
-        }}
-      />
-    );
-  }
-
-  return (
-    <Studio songs={songs} loaded={loaded} authNeeded={authNeeded} refresh={refresh} upsert={upsert} />
-  );
-}
-
-function Studio({
-  songs,
-  loaded,
-  authNeeded,
-  refresh,
-  upsert,
-}: {
-  songs: Song[];
-  loaded: boolean;
-  authNeeded: boolean;
-  refresh: () => Promise<void>;
-  upsert: (song: Song) => void;
-}) {
-  const [active, setActive] = useState<Song | null>(null);
+  const [query, setQuery] = useState('');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // autoplay when the active song finishes generating
   const wasPending = useRef(false);
-  const activeFresh = active ? songs.find((s) => s.id === active.id) ?? active : null;
-  useEffect(() => {
-    if (!activeFresh) return;
-    if (activeFresh.status === 'PENDING') wasPending.current = true;
-    if (wasPending.current && activeFresh.status === 'SUCCESS' && audioRef.current) {
-      wasPending.current = false;
-      audioRef.current.src = songAudioUrl(activeFresh)!;
-      void audioRef.current.play();
-    }
-  }, [activeFresh]);
 
-  const play = (song: Song) => {
+  // the song list the transport walks — what the user can actually see
+  const visible = useMemo(() => filterSongs(songs, query), [songs, query]);
+  const active = activeId ? songs.find((s) => s.id === activeId) ?? null : null;
+
+  const play = useCallback((song: Song) => {
     const url = songAudioUrl(song);
-    if (!url || !audioRef.current) return;
-    if (active?.id === song.id && audioRef.current.src.includes(song.r2Key!)) {
-      if (audioRef.current.paused) void audioRef.current.play();
-      else audioRef.current.pause();
+    const el = audioRef.current;
+    if (!url || !el) return;
+    if (activeId === song.id && el.src.includes(song.r2Key!)) {
+      if (el.paused) void el.play();
+      else el.pause();
       return;
     }
-    audioRef.current.src = url;
-    setActive(song);
-    setIsPlaying(true);
-    void audioRef.current.play();
-  };
+    el.src = url;
+    setActiveId(song.id);
+    void el.play();
+  }, [activeId]);
 
-  if (authNeeded) {
+  // autoplay a song that was pending when the user selected it
+  useEffect(() => {
+    if (!active) return;
+    if (active.status === 'PENDING') wasPending.current = true;
+    if (wasPending.current && active.status === 'SUCCESS' && audioRef.current) {
+      wasPending.current = false;
+      audioRef.current.src = songAudioUrl(active)!;
+      void audioRef.current.play();
+    }
+  }, [active]);
+
+  const index = active ? visible.findIndex((s) => s.id === active.id) : -1;
+  const playableAt = (i: number): Song | null => {
+    const s = visible[i];
+    return s && s.status === 'SUCCESS' && songAudioUrl(s) ? s : null;
+  };
+  const prev = index > 0 ? playableAt(index - 1) : null;
+  const next = index >= 0 && index < visible.length - 1 ? playableAt(index + 1) : null;
+
+  if (loaded && authNeeded) {
     return <AuthGate onAuthed={() => void refresh()} />;
   }
 
@@ -81,47 +68,50 @@ function Studio({
         preload="none"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (next) play(next);
+        }}
       />
 
-      {/* header */}
-      <header className="mx-auto flex h-16 w-full max-w-6xl shrink-0 items-center justify-between px-4 md:px-6">
-        <span className="text-[15px] font-semibold tracking-tight">
-          Song<span style={{ color: 'var(--accent)' }}>-</span>Auto
-        </span>
-        <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-          {songs.length} เพลง
-        </span>
-      </header>
+      <AppHeader query={query} onQueryChange={setQuery} onCreate={() => setPanelOpen(true)} />
 
-      {/* bento split */}
-      <div className="mx-auto flex w-full min-h-0 max-w-6xl flex-1 gap-5 px-4 pb-5 md:px-6">
-        <aside className="w-full shrink-0 md:w-[380px]">
-          <CreatePanel
-            onCreated={(song) => {
-              upsert(song);
-              setActive(song);
-              wasPending.current = true;
-            }}
-          />
-        </aside>
+      <main className="mx-auto w-full min-h-0 max-w-6xl flex-1 overflow-y-auto px-4 py-6 md:px-6 md:py-8">
+        <LibraryGrid
+          songs={songs}
+          loaded={loaded}
+          query={query}
+          activeSong={active}
+          isPlaying={isPlaying}
+          onPlay={play}
+          upsert={upsert}
+          onRetryFailed={setToast}
+        />
+      </main>
 
-        <main className="min-w-0 flex-1 overflow-y-auto pr-1">
-          <h2 className="mb-4 text-[13px] font-medium uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
-            Library
-          </h2>
-          <LibraryGrid
-            songs={songs}
-            loaded={loaded}
-            activeSong={activeFresh}
-            isPlaying={isPlaying}
-            onPlay={play}
-            upsert={upsert}
-          />
-        </main>
-      </div>
+      <PlayerBar
+        song={active}
+        isPlaying={isPlaying}
+        audioRef={audioRef}
+        onPrev={() => prev && play(prev)}
+        onNext={() => next && play(next)}
+        hasPrev={Boolean(prev)}
+        hasNext={Boolean(next)}
+      />
 
-      <PlayerBar song={activeFresh} isPlaying={isPlaying} audioRef={audioRef} />
+      <SlideOver open={panelOpen} title="สร้างเพลงใหม่" onClose={() => setPanelOpen(false)}>
+        <CreatePanel
+          onCreated={(song) => {
+            upsert(song);
+            setActiveId(song.id);
+            wasPending.current = true;
+            setPanelOpen(false);
+            setToast('เริ่มสร้างเพลงแล้ว — จะขึ้นในคลังเมื่อเสร็จ');
+          }}
+        />
+      </SlideOver>
+
+      <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   );
 }

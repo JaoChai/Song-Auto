@@ -10,11 +10,12 @@ interface Props {
   isPlaying: boolean;
   onPlay: (song: Song) => void;
   upsert: (song: Song) => void;
+  onRetryFailed: (message: string) => void;
 }
 
 const GRID = 'grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4';
 
-export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert }: Props) {
+export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, onRetryFailed }: Props) {
   const retry = async (song: Song) => {
     const body: GenerateBody = {
       prompt: song.prompt,
@@ -40,7 +41,9 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
         createdAt: new Date().toISOString(),
       });
     } catch {
-      /* next poll surfaces */
+      // a failed retry creates no new row, so there's nothing for the next
+      // poll to surface — the user needs feedback here, not silence
+      onRetryFailed('ลองสร้างเพลงใหม่ไม่สำเร็จ');
     }
   };
 
