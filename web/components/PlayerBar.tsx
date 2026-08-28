@@ -70,7 +70,7 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
         {/* artwork + meta */}
         <div className="flex min-w-0 items-center gap-3" style={{ width: 220 }}>
           <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
-            {song && <CoverArt song={song} />}
+            {song && <CoverArt key={song.id} song={song} />}
           </div>
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${song ? '' : 'opacity-35'}`}>

@@ -17,8 +17,39 @@ export function SlideOver({ open, title, onClose, children }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const focusable = (): HTMLElement[] =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not(:disabled), textarea:not(:disabled), input:not(:disabled), select:not(:disabled), summary, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => {
+        // querySelectorAll finds elements inside a closed <details> too (e.g. the
+        // negativeTags input) — Chromium keeps their offsetParent non-null (it's
+        // content-visibility: hidden, not display: none), so check <details> directly
+        const details = el.closest('details');
+        return !details || details.open || el.tagName === 'SUMMARY';
+      });
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      // keep Tab cycling inside the panel while it's open
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
     // move focus into the panel so keyboard users land inside it
@@ -27,6 +58,8 @@ export function SlideOver({ open, title, onClose, children }: Props) {
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      // give focus back to whatever opened the panel
+      previouslyFocused?.focus();
     };
   }, [open]);
 

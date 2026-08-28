@@ -30,6 +30,9 @@ export function SongCard({ song, isActive, isPlaying, onPlay, onRetry }: Props) 
         tabIndex={playable ? 0 : undefined}
         aria-label={playable ? `เล่น ${song.title || 'Untitled'}` : undefined}
         onKeyDown={(e) => {
+          // ignore key events bubbling up from a focused child (the download link)
+          // so its own Enter/Space activation isn't swallowed by the card's play toggle
+          if (e.target !== e.currentTarget) return;
           if (playable && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             onPlay(song);

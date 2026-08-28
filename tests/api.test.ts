@@ -188,6 +188,22 @@ describe('API routes', () => {
     expect(lastSql.value).toMatch(/INSERT INTO songs/i);
   });
 
+  it('POST /api/generate: instrumental custom-mode request with no prompt key at all still inserts a row (prompt defaults to empty string, not undefined)', async () => {
+    const { env, data } = makeEnv();
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({ taskId: 't', status: 'PENDING', response: { sunoData: [] } });
+    const { prompt: _omit, ...noPrompt } = { ...baseInput, style: 'lo-fi', title: 'Rain' };
+    void _omit;
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(noPrompt),
+    }, env);
+    expect(res.status).toBe(201);
+    expect(data).toHaveLength(1);
+    expect(data[0].prompt).toBe('');
+  });
+
   it('POST /api/generate: validation error → 400 {error}, nothing inserted, no kie call', async () => {
     const { env, data } = makeEnv();
     const cookie = await cookieFor('pw');

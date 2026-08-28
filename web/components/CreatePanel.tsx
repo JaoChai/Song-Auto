@@ -28,7 +28,9 @@ export function CreatePanel({ onCreated }: Props) {
     setError(null);
     try {
       const body: GenerateBody = {
-        ...(instrumental ? {} : { prompt: lyrics }),
+        // our own /api/generate row always stores a prompt (possibly empty);
+        // kieGenerate (server-side) is what decides whether to forward it to kie.ai
+        prompt: instrumental ? '' : lyrics,
         style,
         title,
         instrumental,

@@ -48,7 +48,7 @@ export async function createSong(ctx: Context<{ Bindings: Env }>) {
     await ctx.env.DB.prepare(
       `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?)`,
-    ).bind(id, taskId, body.title ?? '', body.prompt, body.style ?? '', '', body.model, body.instrumental ? 1 : 0, createdAt).run();
+    ).bind(id, taskId, body.title ?? '', body.prompt ?? '', body.style ?? '', '', body.model, body.instrumental ? 1 : 0, createdAt).run();
   } catch (e) {
     return c(ctx).json({ error: `failed to insert song row: ${err(e)}` }, 500);
   }
