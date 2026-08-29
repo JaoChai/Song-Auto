@@ -30,6 +30,7 @@ const makeDb = (rows: Row[] = []) => {
       lastSql.value = sql;
       const S = sql.toUpperCase();
       const isInsert = S.includes('INSERT INTO');
+      const isDelete = S.startsWith('DELETE');
       const isSelectById = S.startsWith('SELECT') && S.includes('WHERE ID = ?');
       const isList = S.startsWith('SELECT') && !S.includes('WHERE');
       const isFailedUpdate = S.includes("SET STATUS = 'FAILED'");
@@ -41,12 +42,20 @@ const makeDb = (rows: Row[] = []) => {
             first: async () => find(args[0] as string) ?? null,
             run: async () => {
               if (isInsert) {
-                const [id, task_id, title, prompt, style, , model, instrumental, , , , , created_at] = args as never[];
+                // (id, task_id, title, prompt, style, tags, model, instrumental, created_at, variant)
+                const [id, task_id, title, prompt, style, tags, model, instrumental, created_at, variant] = args as never[];
                 data.push({
-                  id, task_id, title, prompt, style, tags: '', model,
+                  id, task_id, title, prompt, style, tags, model,
                   instrumental: Number(instrumental), status: 'PENDING',
-                  error: null, r2_key: null, duration: null, created_at,
-                } as Row);
+                  error: null, r2_key: null, image_key: null, duration: null,
+                  created_at, variant: Number(variant), suno_id: null,
+                } as unknown as Row);
+                return { success: true };
+              }
+              if (isDelete) {
+                const [id] = args as [string];
+                const i = data.findIndex((r) => r.id === id);
+                if (i >= 0) data.splice(i, 1);
                 return { success: true };
               }
               if (isFailedUpdate) {
@@ -54,21 +63,32 @@ const makeDb = (rows: Row[] = []) => {
                 Object.assign(find(id)!, { status: 'FAILED', error });
                 return { success: true };
               }
-              // SUCCESS update: (r2Key, imageKey, tags, duration, id)
-              const [r2_key, image_key, tags, duration, id] = args as [string, string | null, string | null, number | null, string];
-              Object.assign(find(id)!, { status: 'SUCCESS', r2_key, image_key, tags, duration, error: null });
+              // SUCCESS update: (r2Key, imageKey, tags, duration, [sunoId,] id)
+              // suno_id เข้ามาใน UPDATE ตอน Task 4 — อ่านจาก SQL ไม่ใช่จำนวน args
+              const hasSunoId = S.includes('SUNO_ID = ?');
+              const [r2_key, image_key, tags, duration] =
+                args as [string, string | null, string | null, number | null];
+              const rowId = args[hasSunoId ? 5 : 4] as string;
+              Object.assign(find(rowId)!, {
+                status: 'SUCCESS', r2_key, image_key, tags, duration, error: null,
+                ...(hasSunoId ? { suno_id: args[4] as string } : {}),
+              });
               return { success: true };
             },
           };
         },
-        // unbound .all() for list queries / .first() safety
         all: async () => ({ results: data.slice() }),
         first: async () => null,
         run: async () => {
-          void isInsert; void isSelectById; void isList;
+          void isInsert; void isDelete; void isSelectById; void isList;
           return { success: true };
         },
       };
+    },
+    batch: async (stmts: Array<{ run: () => Promise<unknown> }>) => {
+      const out = [];
+      for (const s of stmts) out.push(await s.run());
+      return out;
     },
   } as unknown as Env['DB'];
   return { db, data };
@@ -141,9 +161,10 @@ const stubKieAndMp3 = (pollData: unknown) => {
 
 const baseInput = { prompt: 'a calm piano song', instrumental: true, model: 'V4_5' };
 
-const rowFixture = (id: string, taskId: string, createdAt: string): Row => ({
+const rowFixture = (id: string, taskId: string, createdAt: string, variant = 1): Row => ({
   id, task_id: taskId, title: 't', prompt: 'p', style: 's', tags: '', model: 'V4_5',
-  instrumental: 0, status: 'PENDING', error: null, r2_key: null, duration: null, created_at: createdAt,
+  instrumental: 0, status: 'PENDING', error: null, r2_key: null, image_key: null,
+  duration: null, created_at: createdAt, variant, suno_id: null,
 });
 
 // --------------------------------------------------------------------------

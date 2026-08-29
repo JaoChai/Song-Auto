@@ -20,6 +20,8 @@ const toSongRow = (r: Record<string, unknown>): SongRow => ({
   imageKey: (r.image_key as string | null) ?? null,
   duration: (r.duration as number | null) ?? null,
   createdAt: r.created_at as string,
+  sunoId: (r.suno_id as string | null) ?? null,
+  variant: Number(r.variant ?? 1),
 });
 
 const err = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -46,9 +48,9 @@ export async function createSong(ctx: Context<{ Bindings: Env }>) {
   const createdAt = new Date().toISOString();
   try {
     await ctx.env.DB.prepare(
-      `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?)`,
-    ).bind(id, taskId, body.title ?? '', body.prompt ?? '', body.style ?? '', '', body.model, body.instrumental ? 1 : 0, createdAt).run();
+      `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at, variant)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?)`,
+    ).bind(id, taskId, body.title ?? '', body.prompt ?? '', body.style ?? '', '', body.model, body.instrumental ? 1 : 0, createdAt, 1).run();
   } catch (e) {
     return c(ctx).json({ error: `failed to insert song row: ${err(e)}` }, 500);
   }
