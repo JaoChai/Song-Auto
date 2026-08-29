@@ -27,6 +27,8 @@ const filled: Draft = {
   title: 'สายฝน',
   instrumental: true,
   negativeTags: 'heavy metal',
+  personaId: 'persona_123',
+  personaModel: 'voice_persona',
 };
 
 describe('draft', () => {
@@ -69,5 +71,21 @@ describe('draft', () => {
     useStorage(undefined);
     expect(loadDraft()).toEqual(EMPTY_DRAFT);
     expect(() => saveDraft(filled)).not.toThrow();
+  });
+
+  it('reads a draft saved before personas existed as "no persona"', () => {
+    globalThis.localStorage.setItem(
+      KEY,
+      JSON.stringify({ lyrics: 'a', style: 'b', title: 'c', instrumental: false, negativeTags: '' }),
+    );
+    const d = loadDraft();
+    expect(d.personaId).toBe('');
+    expect(d.personaModel).toBe('');
+    expect(d.style).toBe('b');
+  });
+
+  it('drops an unknown personaModel', () => {
+    globalThis.localStorage.setItem(KEY, JSON.stringify({ personaId: 'p', personaModel: 'nonsense' }));
+    expect(loadDraft().personaModel).toBe('');
   });
 });
