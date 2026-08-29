@@ -9,10 +9,11 @@ const TITLE_MAX = 80;
 
 interface Props {
   personas: Persona[];
+  personasLoaded: boolean;
   onCreated: (songs: Song[]) => void;
 }
 
-export function CreatePanel({ personas, onCreated }: Props) {
+export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
   const [draft, setDraft] = useState<Draft>(loadDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +24,19 @@ export function CreatePanel({ personas, onCreated }: Props) {
   useEffect(() => {
     saveDraft(draft);
   }, [draft]);
+
+  // a persisted personaId can point at a persona that no longer exists (DB
+  // cleared / different environment) — the <select> then falls back to
+  // "ไม่ใช้ persona" with no matching <option>, so the draft must follow suit
+  // or a stale personaId would ship silently on submit. Wait for the initial
+  // fetch to settle first: personas starts empty while still loading, and
+  // acting on that would wipe a legitimate personaId every page load.
+  useEffect(() => {
+    if (!personasLoaded) return;
+    if (personaId && !personas.some((p) => p.personaId === personaId)) {
+      setDraft((d) => ({ ...d, personaId: '', personaModel: '' }));
+    }
+  }, [personasLoaded, personas, personaId]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));

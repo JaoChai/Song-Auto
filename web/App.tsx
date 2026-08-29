@@ -12,7 +12,7 @@ import { usePersonas } from './hooks/usePersonas';
 
 export default function App() {
   const { songs, loaded, authNeeded, refresh, upsert, remove } = useSongs();
-  const { personas, add: addPersona } = usePersonas();
+  const { personas, loaded: personasLoaded, add: addPersona } = usePersonas();
   const [query, setQuery] = useState('');
   // only meaningful under 768px — both panels are visible side by side above it
   const [tab, setTab] = useState<'create' | 'library'>('library');
@@ -95,6 +95,7 @@ export default function App() {
         >
           <CreatePanel
             personas={personas}
+            personasLoaded={personasLoaded}
             onCreated={(created) => {
               upsert(created);
               setActiveId(created[0].id);

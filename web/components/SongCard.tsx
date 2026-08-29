@@ -118,7 +118,11 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
         {canPersona && (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setPersonaOpen((v) => !v); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (personaOpen) setPersonaError(null);
+              setPersonaOpen(!personaOpen);
+            }}
             aria-label={`ทำ persona จาก ${song.title || 'Untitled'}`}
             aria-expanded={personaOpen}
             className="icon-btn absolute right-1.5 top-11 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
@@ -187,7 +191,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
               </button>
               <button
                 type="button"
-                onClick={() => setPersonaOpen(false)}
+                onClick={() => { setPersonaOpen(false); setPersonaError(null); }}
                 className="cursor-pointer text-sm"
                 style={{ color: 'var(--text-3)' }}
               >
