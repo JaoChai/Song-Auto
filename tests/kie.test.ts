@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateGenerate, kieGenerate, kiePollTask, type GenerateInput } from '../src/worker/kie';
+import { validateGenerate, kieGenerate, kiePollTask, kieCreatePersona, type GenerateInput } from '../src/worker/kie';
 import type { Env } from '../src/worker/types';
 
 const env: Env = { DB: {} as any, AUDIO: {} as any, KIE_API_KEY: 'test-key', APP_PASSWORD: 'pw' };
@@ -271,5 +271,94 @@ describe('instrumental mode', () => {
     expect(body.prompt).toBeUndefined();
     expect(body.style).toBe('lo-fi');
     expect(body.instrumental).toBe(true);
+  });
+});
+
+describe('persona in generate', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const custom: GenerateInput = {
+    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V5',
+  };
+
+  it('accepts personaId + personaModel together', () => {
+    expect(validateGenerate({ ...custom, personaId: 'persona_1', personaModel: 'style_persona' })).toBeNull();
+    expect(validateGenerate({ ...custom, personaId: 'persona_1', personaModel: 'voice_persona' })).toBeNull();
+  });
+
+  it('rejects personaId without personaModel and vice versa', () => {
+    expect(validateGenerate({ ...custom, personaId: 'persona_1' })).toMatch(/persona/i);
+    expect(validateGenerate({ ...custom, personaModel: 'style_persona' })).toMatch(/persona/i);
+  });
+
+  it('rejects an unknown personaModel', () => {
+    expect(validateGenerate({ ...custom, personaId: 'p', personaModel: 'other' })).toMatch(/personaModel/i);
+  });
+
+  it('forwards both persona fields to kie when present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 't1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, { ...custom, personaId: 'persona_1', personaModel: 'voice_persona' });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.personaId).toBe('persona_1');
+    expect(body.personaModel).toBe('voice_persona');
+  });
+
+  it('omits both persona keys entirely when not given', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 't1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, custom);
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect('personaId' in body).toBe(false);
+    expect('personaModel' in body).toBe(false);
+  });
+});
+
+describe('kieCreatePersona', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const input = { taskId: 'task-1', audioId: 'a1', name: 'ชื่อ', description: 'คำอธิบาย' };
+
+  it('POSTs to generate-persona with the auth header and returns personaId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { personaId: 'persona_123' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const id = await kieCreatePersona(env, input);
+    expect(id).toBe('persona_123');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.kie.ai/api/v1/generate/generate-persona');
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe('Bearer test-key');
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual(input);
+  });
+
+  it('throws when the envelope code is not 200', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 402, msg: 'insufficient credits', data: null }),
+    }));
+    await expect(kieCreatePersona(env, input)).rejects.toThrow(/insufficient credits/);
+  });
+
+  it('throws when personaId is missing from a 200 response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: {} }),
+    }));
+    await expect(kieCreatePersona(env, input)).rejects.toThrow(/personaId/);
+  });
+
+  it('throws on a network error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')));
+    await expect(kieCreatePersona(env, input)).rejects.toThrow(/ECONNRESET/);
   });
 });
