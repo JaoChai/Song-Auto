@@ -1,4 +1,4 @@
-import { api, type GenerateBody, type Song } from '../lib/api';
+import { api, type GenerateBody, type Persona, type Song } from '../lib/api';
 import { filterSongs } from '../lib/filter';
 import { SongCard } from './SongCard';
 
@@ -12,11 +12,12 @@ interface Props {
   upsert: (song: Song | Song[]) => void;
   remove: (id: string) => void;
   onRetryFailed: (message: string) => void;
+  onPersonaCreated: (persona: Persona) => void;
 }
 
 const GRID = 'grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4';
 
-export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, remove, onRetryFailed }: Props) {
+export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, remove, onRetryFailed, onPersonaCreated }: Props) {
   const retry = async (song: Song) => {
     const body: GenerateBody = {
       prompt: song.prompt,
@@ -38,6 +39,15 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
       // poll to surface — the user needs feedback here, not silence
       onRetryFailed('ลองสร้างเพลงใหม่ไม่สำเร็จ');
     }
+  };
+
+  /** POST the persona, hand the created row up; SongCard shows the error if this throws. */
+  const createPersona = async (song: Song, name: string, description: string) => {
+    const created = await api<{ persona: Persona }>('/api/personas', {
+      method: 'POST',
+      body: JSON.stringify({ songId: song.id, name, description }),
+    });
+    onPersonaCreated(created.persona);
   };
 
   if (!loaded) {
@@ -87,6 +97,7 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
             isPlaying={isPlaying}
             onPlay={onPlay}
             onRetry={retry}
+            onCreatePersona={createPersona}
           />
         </div>
       ))}

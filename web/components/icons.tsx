@@ -67,3 +67,10 @@ export const VolumeIcon = ({ className, style }: IconProps) => (
     <path d="M11 5 6 9H3v6h3l5 4zM16 9a4 4 0 0 1 0 6" />
   </svg>
 );
+
+export const PersonaIcon = ({ className, style }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className} style={style} {...stroke} aria-hidden="true">
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" />
+  </svg>
+);

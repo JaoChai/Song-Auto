@@ -1,3 +1,5 @@
+export type PersonaModel = '' | 'style_persona' | 'voice_persona';
+
 /** ค่าที่ผู้ใช้กรอกในฟอร์มสร้างเพลง — เก็บไว้ข้ามการสร้างและข้ามการรีเฟรช */
 export interface Draft {
   lyrics: string;
@@ -5,6 +7,8 @@ export interface Draft {
   title: string;
   instrumental: boolean;
   negativeTags: string;
+  personaId: string;
+  personaModel: PersonaModel;
 }
 
 const KEY = 'song-auto:draft';
@@ -15,9 +19,14 @@ export const EMPTY_DRAFT: Draft = {
   title: '',
   instrumental: false,
   negativeTags: '',
+  personaId: '',
+  personaModel: '',
 };
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+
+const personaModel = (value: unknown): PersonaModel =>
+  value === 'style_persona' || value === 'voice_persona' ? value : '';
 
 /** อ่าน draft ที่เก็บไว้ ทุกความล้มเหลว (ไม่มี storage / JSON พัง / ชนิดผิด) คืน EMPTY_DRAFT */
 export function loadDraft(): Draft {
@@ -33,6 +42,8 @@ export function loadDraft(): Draft {
       title: str(d.title),
       instrumental: d.instrumental === true,
       negativeTags: str(d.negativeTags),
+      personaId: str(d.personaId),
+      personaModel: personaModel(d.personaModel),
     };
   } catch {
     return EMPTY_DRAFT;

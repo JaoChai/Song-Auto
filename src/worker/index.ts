@@ -5,6 +5,7 @@ import { authMiddleware } from './auth';
 import type { Env } from './types';
 import { createSong, getTask, listSongs } from './routes';
 import { getAudio } from './audio';
+import { createPersona, listPersonas } from './personas';
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -32,6 +33,8 @@ app.use('/audio/*', authMiddleware);
 app.post('/api/generate', createSong);
 app.get('/api/tasks/:id', getTask);
 app.get('/api/songs', listSongs);
+app.post('/api/personas', createPersona);
+app.get('/api/personas', listPersonas);
 // audio route also sits behind authMiddleware (path starts with /audio, not exempted)
 app.get('/audio/:key', getAudio);
 

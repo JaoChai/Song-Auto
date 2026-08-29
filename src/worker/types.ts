@@ -12,3 +12,12 @@ export interface SongRow {
   error: string | null; r2Key: string | null; imageKey: string | null; duration: number | null; createdAt: string;
   sunoId: string | null; variant: number;
 }
+
+export interface PersonaRow {
+  id: string;
+  personaId: string;
+  name: string;
+  description: string;
+  songId: string;
+  createdAt: string;
+}

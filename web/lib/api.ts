@@ -44,6 +44,15 @@ export interface Song {
   variant: number;
 }
 
+export interface Persona {
+  id: string;
+  personaId: string;
+  name: string;
+  description: string;
+  songId: string;
+  createdAt: string;
+}
+
 const r2Url = (key: string | null): string | null => (key ? `/audio/${key}` : null);
 
 export const songAudioUrl = (s: Song): string | null => r2Url(s.r2Key);
@@ -66,4 +75,6 @@ export interface GenerateBody {
   instrumental: boolean;
   model: string;
   negativeTags?: string;
+  personaId?: string;
+  personaModel?: 'style_persona' | 'voice_persona';
 }
