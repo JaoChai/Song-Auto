@@ -9,13 +9,14 @@ interface Props {
   activeSong: Song | null;
   isPlaying: boolean;
   onPlay: (song: Song) => void;
-  upsert: (song: Song) => void;
+  upsert: (song: Song | Song[]) => void;
+  remove: (id: string) => void;
   onRetryFailed: (message: string) => void;
 }
 
 const GRID = 'grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4';
 
-export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, onRetryFailed }: Props) {
+export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, remove, onRetryFailed }: Props) {
   const retry = async (song: Song) => {
     const body: GenerateBody = {
       prompt: song.prompt,
@@ -25,21 +26,13 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
       ...(song.title ? { title: song.title } : {}),
     };
     try {
-      const created = await api<{ id: string; status: 'PENDING' }>('/api/generate', {
+      const created = await api<{ songs: Song[] }>('/api/generate', {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      upsert({
-        ...song,
-        id: created.id,
-        taskId: '',
-        status: 'PENDING',
-        error: null,
-        r2Key: null,
-        imageKey: null,
-        duration: null,
-        createdAt: new Date().toISOString(),
-      });
+      // the failed card is replaced by the fresh pair
+      remove(song.id);
+      upsert(created.songs);
     } catch {
       // a failed retry creates no new row, so there's nothing for the next
       // poll to surface — the user needs feedback here, not silence
@@ -89,6 +82,7 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
         <div key={song.id} className="rise-in" style={{ animationDelay: `${Math.min(i * 40, 240)}ms` }}>
           <SongCard
             song={song}
+            showVariant={visible.filter((s) => s.taskId === song.taskId).length > 1}
             isActive={activeSong?.id === song.id}
             isPlaying={isPlaying}
             onPlay={onPlay}

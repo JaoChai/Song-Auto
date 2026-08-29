@@ -6,6 +6,7 @@ const song = (over: Partial<Song>): Song => ({
   id: 'x', taskId: '', title: '', prompt: '', style: '', tags: '',
   model: 'V5', instrumental: 0, status: 'SUCCESS', error: null,
   r2Key: 'x.mp3', imageKey: null, duration: 60, createdAt: '2026-08-28T00:00:00Z',
+  sunoId: null, variant: 1,
   ...over,
 });
 

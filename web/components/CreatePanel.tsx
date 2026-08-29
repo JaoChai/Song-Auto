@@ -8,7 +8,7 @@ const STYLE_MAX = 1000;
 const TITLE_MAX = 80;
 
 interface Props {
-  onCreated: (song: Song) => void;
+  onCreated: (songs: Song[]) => void;
 }
 
 export function CreatePanel({ onCreated }: Props) {
@@ -44,26 +44,11 @@ export function CreatePanel({ onCreated }: Props) {
         model: 'V5',
         ...(negativeTags ? { negativeTags } : {}),
       };
-      const created = await api<{ id: string; status: 'PENDING' }>('/api/generate', {
+      const created = await api<{ songs: Song[] }>('/api/generate', {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      onCreated({
-        id: created.id,
-        taskId: '',
-        title,
-        prompt: lyrics,
-        style,
-        tags: '',
-        model: 'V5',
-        instrumental: instrumental ? 1 : 0,
-        status: 'PENDING',
-        error: null,
-        r2Key: null,
-        imageKey: null,
-        duration: null,
-        createdAt: new Date().toISOString(),
-      });
+      onCreated(created.songs);
       // the form deliberately keeps its values: tweak a word, create again
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้างเพลงไม่สำเร็จ');

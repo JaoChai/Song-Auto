@@ -138,7 +138,7 @@ describe('kiePollTask', () => {
     }
   });
 
-  it('SUCCESS extracts first sunoData track (camelCase audioUrl, duration, tags)', async () => {
+  it('SUCCESS carries every sunoData item in order, with sunoId', async () => {
     stubPoll({
       taskId: 't',
       status: 'SUCCESS',
@@ -150,22 +150,37 @@ describe('kiePollTask', () => {
       },
     });
     const res = await kiePollTask(env, 't');
-    expect(res.track?.audioUrl).toBe('https://cdn/1.mp3');
+    if (res.kind !== 'PENDING') throw new Error(`expected PENDING, got ${JSON.stringify(res)}`);
+    expect(res.complete).toBe(true);
+    expect(res.tracks).toEqual([
+      { sunoId: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano', imageUrl: null },
+      { sunoId: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 198.5, tags: 'other', imageUrl: null },
+    ]);
   });
 
-  it('SUCCESS result carries track from sunoData[0]', async () => {
+  it('FIRST_SUCCESS carries the tracks that arrived so far and complete=false', async () => {
     stubPoll({
       taskId: 't',
-      status: 'SUCCESS',
-      response: {
-        sunoData: [
-          { id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano' },
-          { id: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 198.5, tags: 'other' },
-        ],
-      },
+      status: 'FIRST_SUCCESS',
+      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'x' }] },
     });
     const res = await kiePollTask(env, 't');
-    expect(res.track).toEqual({ audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano', imageUrl: null });
+    if (res.kind !== 'PENDING') throw new Error(`expected PENDING, got ${JSON.stringify(res)}`);
+    expect(res.complete).toBe(false);
+    expect(res.tracks).toHaveLength(1);
+    expect(res.tracks[0].sunoId).toBe('a1');
+  });
+
+  it('an item without audioUrl becomes an empty audioUrl, keeping its position', async () => {
+    stubPoll({
+      taskId: 't',
+      status: 'FIRST_SUCCESS',
+      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3' }, { id: 'a2' }] },
+    });
+    const res = await kiePollTask(env, 't');
+    if (res.kind !== 'PENDING') throw new Error(`expected PENDING, got ${JSON.stringify(res)}`);
+    expect(res.tracks).toHaveLength(2);
+    expect(res.tracks[1].audioUrl).toBe('');
   });
 
   it('envelope code !== 200 → TRANSIENT with msg in note', async () => {
@@ -211,7 +226,7 @@ describe('kiePollTask cover art', () => {
       })),
     ));
     const res = await kiePollTask(env, 'task-1');
-    expect(res.track?.imageUrl).toBe('https://x/a.jpg');
+    expect(res.kind === 'PENDING' && res.tracks[0].imageUrl).toBe('https://x/a.jpg');
   });
 
   it('yields null imageUrl when the field is absent', async () => {
@@ -222,7 +237,7 @@ describe('kiePollTask cover art', () => {
       })),
     ));
     const res = await kiePollTask(env, 'task-1');
-    expect(res.track?.imageUrl).toBeNull();
+    expect(res.kind === 'PENDING' && res.tracks[0].imageUrl).toBeNull();
   });
 });
 
