@@ -12,7 +12,7 @@ import { usePersonas } from './hooks/usePersonas';
 
 export default function App() {
   const { songs, loaded, authNeeded, refresh, upsert, remove } = useSongs();
-  const { personas, loaded: personasLoaded, add: addPersona } = usePersonas();
+  const { personas, loaded: personasLoaded, refresh: refreshPersonas, add: addPersona } = usePersonas();
   const [query, setQuery] = useState('');
   // only meaningful under 768px — both panels are visible side by side above it
   const [tab, setTab] = useState<'create' | 'library'>('library');
@@ -60,7 +60,7 @@ export default function App() {
   const next = index >= 0 && index < visible.length - 1 ? playableAt(index + 1) : null;
 
   if (loaded && authNeeded) {
-    return <AuthGate onAuthed={() => void refresh()} />;
+    return <AuthGate onAuthed={() => { void refresh(); void refreshPersonas(); }} />;
   }
 
   return (
