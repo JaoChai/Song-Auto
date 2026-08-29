@@ -76,9 +76,10 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
     return c(ctx).json({ status: 'FAILED', error: poll.error });
   }
 
-  // SUCCESS signal: kiePollTask returns kind PENDING with a track attached.
-  if (poll.track) {
-    const { audioUrl, duration, tags, imageUrl } = poll.track;
+  // SUCCESS signal: kiePollTask returns kind PENDING carrying the tracks so far.
+  const firstTrack = poll.kind === 'PENDING' ? poll.tracks[0] : undefined;
+  if (firstTrack) {
+    const { audioUrl, duration, tags, imageUrl } = firstTrack;
     if (!audioUrl) return c(ctx).json({ status: 'PENDING', transient: true });
 
     let bytes: Uint8Array | null = null;

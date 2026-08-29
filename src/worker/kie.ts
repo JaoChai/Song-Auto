@@ -99,28 +99,35 @@ export async function kieGenerate(env: Env, input: GenerateInput): Promise<strin
 }
 
 export type KiePoll =
-  | { kind: 'PENDING' }
+  | { kind: 'PENDING'; tracks: TrackInfo[]; complete: boolean }
   | { kind: 'FAILED'; error: string }
   | { kind: 'TRANSIENT'; note: string };
 
 export interface TrackInfo {
+  sunoId: string;
   audioUrl: string;
   duration: number | null;
   tags: string | null;
   imageUrl: string | null;
 }
 
+const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+const strOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+
 /**
  * GET /api/v1/generate/record-info — the single source of kie status mapping.
- * PENDING/TEXT_SUCCESS/FIRST_SUCCESS → PENDING; SUCCESS → PENDING + track from
- * first sunoData item; the four FAILED enums → FAILED with errorMessage;
+ * The four FAILED enums → FAILED with errorMessage; PENDING/TEXT_SUCCESS/FIRST_SUCCESS/SUCCESS →
+ * PENDING carrying every sunoData item in its original position (complete=true only on SUCCESS);
  * non-200 envelope or network throw → TRANSIENT (safe to retry).
+ *
+ * Positions are preserved on purpose: a row keeps its own index into this array, so an item
+ * that has not got its audioUrl yet must stay in place rather than be filtered out.
  */
-export async function kiePollTask(env: Env, taskId: string): Promise<KiePoll & { track?: TrackInfo }> {
+export async function kiePollTask(env: Env, taskId: string): Promise<KiePoll> {
   let data: {
     status?: string;
     errorMessage?: string;
-    response?: { sunoData?: Array<Partial<TrackInfo> & { id?: string }> };
+    response?: { sunoData?: Array<Record<string, unknown>> };
   };
   try {
     const res = await fetch(`${BASE_URL}/api/v1/generate/record-info?taskId=${encodeURIComponent(taskId)}`, {
@@ -136,21 +143,19 @@ export async function kiePollTask(env: Env, taskId: string): Promise<KiePoll & {
   }
 
   const status = data?.status;
-  if (status === 'PENDING' || status === 'TEXT_SUCCESS' || status === 'FIRST_SUCCESS') {
-    return { kind: 'PENDING' };
-  }
   if (status && (KIE_FAILED_STATUSES as readonly string[]).includes(status)) {
     return { kind: 'FAILED', error: data?.errorMessage || `kie task ${status}` };
   }
-  if (status === 'SUCCESS') {
-    const first = data?.response?.sunoData?.[0];
-    const track: TrackInfo = {
-      audioUrl: first?.audioUrl ?? '',
-      duration: typeof first?.duration === 'number' ? first.duration : null,
-      tags: typeof first?.tags === 'string' ? first.tags : null,
-      imageUrl: typeof first?.imageUrl === 'string' ? first.imageUrl : null,
-    };
-    return { kind: 'PENDING', track };
+  if (status === 'PENDING' || status === 'TEXT_SUCCESS' || status === 'FIRST_SUCCESS' || status === 'SUCCESS') {
+    const items = data?.response?.sunoData ?? [];
+    const tracks: TrackInfo[] = items.map((it) => ({
+      sunoId: str(it?.id),
+      audioUrl: str(it?.audioUrl),
+      duration: typeof it?.duration === 'number' ? it.duration : null,
+      tags: strOrNull(it?.tags),
+      imageUrl: strOrNull(it?.imageUrl),
+    }));
+    return { kind: 'PENDING', tracks, complete: status === 'SUCCESS' };
   }
   return { kind: 'TRANSIENT', note: `kie poll: unexpected status '${String(status)}'` };
 }
