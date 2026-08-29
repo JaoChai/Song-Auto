@@ -26,7 +26,9 @@ const toSongRow = (r: Record<string, unknown>): SongRow => ({
 
 const err = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-/** POST /api/generate — call kie, then insert PENDING row. */
+const VARIANTS = [1, 2] as const;
+
+/** POST /api/generate — one kie job, two PENDING rows (Suno returns two tracks per task). */
 export async function createSong(ctx: Context<{ Bindings: Env }>) {
   let body: GenerateInput;
   try {
@@ -44,17 +46,40 @@ export async function createSong(ctx: Context<{ Bindings: Env }>) {
     return c(ctx).json({ error: err(e) }, 502);
   }
 
-  const id = nanoid();
   const createdAt = new Date().toISOString();
+  const rows = VARIANTS.map((variant) => ({
+    id: nanoid(),
+    task_id: taskId,
+    title: body.title ?? '',
+    prompt: body.prompt ?? '',
+    style: body.style ?? '',
+    tags: '',
+    model: body.model,
+    instrumental: body.instrumental ? 1 : 0,
+    status: 'PENDING' as const,
+    error: null,
+    r2_key: null,
+    image_key: null,
+    duration: null,
+    created_at: createdAt,
+    suno_id: null,
+    variant,
+  }));
+
   try {
-    await ctx.env.DB.prepare(
-      `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at, variant)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?)`,
-    ).bind(id, taskId, body.title ?? '', body.prompt ?? '', body.style ?? '', '', body.model, body.instrumental ? 1 : 0, createdAt, 1).run();
+    await ctx.env.DB.batch(
+      rows.map((r) =>
+        ctx.env.DB.prepare(
+          `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at, variant)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?)`,
+        ).bind(r.id, r.task_id, r.title, r.prompt, r.style, r.tags, r.model, r.instrumental, r.created_at, r.variant),
+      ),
+    );
   } catch (e) {
-    return c(ctx).json({ error: `failed to insert song row: ${err(e)}` }, 500);
+    return c(ctx).json({ error: `failed to insert song rows: ${err(e)}` }, 500);
   }
-  return c(ctx).json({ id, status: 'PENDING' }, 201);
+
+  return c(ctx).json({ songs: rows.map(toSongRow) }, 201);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -187,7 +187,7 @@ describe('API routes', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it('POST /api/generate: 201 happy path — inserts PENDING row and returns {id, status}', async () => {
+  it('POST /api/generate: 201 happy path — inserts two PENDING rows (variant 1 and 2) and returns both', async () => {
     const { env, data } = makeEnv();
     const cookie = await cookieFor('pw');
     const { mock } = stubKieAndMp3({ taskId: 't', status: 'PENDING', response: { sunoData: [] } });
@@ -197,19 +197,21 @@ describe('API routes', () => {
       body: JSON.stringify({ ...baseInput }),
     }, env);
     expect(res.status).toBe(201);
-    const body = await res.json() as { id: string; status: string };
-    expect(body.status).toBe('PENDING');
-    expect(body.id).toBeTruthy();
-    expect(data).toHaveLength(1);
-    expect(data[0].status).toBe('PENDING');
-    expect(data[0].task_id).toBe('task-1');
-    // kie create hit, nothing else
+    const body = await res.json() as { songs: SongRow[] };
+    expect(body.songs).toHaveLength(2);
+    expect(body.songs.map((s) => s.variant)).toEqual([1, 2]);
+    expect(body.songs[0].status).toBe('PENDING');
+    expect(body.songs[0].id).not.toBe(body.songs[1].id);
+    // both rows share the one kie task
+    expect(data).toHaveLength(2);
+    expect(data.map((r) => r.task_id)).toEqual(['task-1', 'task-1']);
+    // kie create hit exactly once — Suno makes both tracks from a single job
     expect(mock).toHaveBeenCalledTimes(1);
     expect(String(mock.mock.calls[0][0])).toBe('https://api.kie.ai/api/v1/generate');
     expect(lastSql.value).toMatch(/INSERT INTO songs/i);
   });
 
-  it('POST /api/generate: instrumental custom-mode request with no prompt key at all still inserts a row (prompt defaults to empty string, not undefined)', async () => {
+  it('POST /api/generate: instrumental custom-mode request with no prompt key at all still inserts rows (prompt defaults to empty string, not undefined)', async () => {
     const { env, data } = makeEnv();
     const cookie = await cookieFor('pw');
     stubKieAndMp3({ taskId: 't', status: 'PENDING', response: { sunoData: [] } });
@@ -221,8 +223,9 @@ describe('API routes', () => {
       body: JSON.stringify(noPrompt),
     }, env);
     expect(res.status).toBe(201);
-    expect(data).toHaveLength(1);
+    expect(data).toHaveLength(2);
     expect(data[0].prompt).toBe('');
+    expect(data[1].prompt).toBe('');
   });
 
   it('POST /api/generate: validation error → 400 {error}, nothing inserted, no kie call', async () => {
