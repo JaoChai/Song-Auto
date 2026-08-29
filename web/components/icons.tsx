@@ -47,18 +47,6 @@ export const SearchIcon = ({ className, style }: IconProps) => (
   </svg>
 );
 
-export const PlusIcon = ({ className, style }: IconProps) => (
-  <svg viewBox="0 0 24 24" className={className} style={style} {...stroke} aria-hidden="true">
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-);
-
-export const CloseIcon = ({ className, style }: IconProps) => (
-  <svg viewBox="0 0 24 24" className={className} style={style} {...stroke} aria-hidden="true">
-    <path d="m6 6 12 12M18 6 6 18" />
-  </svg>
-);
-
 export const SpinnerIcon = ({ className, style }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className} style={style} fill="none" aria-hidden="true">
     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />

@@ -175,6 +175,46 @@ textarea.input {
   font-weight: 500;
 }
 
+/* ปุ่มสร้างปักหมุดที่ก้นฟอร์ม — ช่อง Lyrics สูง ปุ่มต้องไม่ตกจอ */
+.form-footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding-top: 12px;
+  padding-bottom: 4px;
+  background: var(--bg);
+}
+
+/* แถบสลับ สร้าง / คลัง — เห็นเฉพาะจอแคบ */
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.seg-btn {
+  flex: 1;
+  min-height: 38px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease), color 160ms var(--ease);
+}
+.seg-btn[aria-pressed='true'] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* เส้นแบ่งฟอร์มกับคลัง — มีเฉพาะตอนสองคอลัมน์อยู่คู่กัน
+   (ใช้ CSS ไม่ใช่ Tailwind `md:border-r` เพราะ Tailwind v4 ตั้ง border สีเริ่มต้นเป็น currentColor) */
+@media (min-width: 768px) {
+  .aside-divider {
+    border-right: 1px solid var(--border);
+  }
+}
+
 /* pending cover shimmer */
 @keyframes shimmer {
   from { background-position: -200% 0; }
@@ -189,49 +229,6 @@ textarea.input {
   );
   background-size: 200% 100%;
   animation: shimmer 1600ms linear infinite;
-}
-
-/* slide-over: right panel on desktop, bottom sheet on mobile */
-@keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: none; }
-}
-@keyframes slideInUp {
-  from { transform: translateY(100%); }
-  to { transform: none; }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.slide-over-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  animation: fadeIn 200ms var(--ease) both;
-}
-.slide-over {
-  position: fixed;
-  z-index: 50;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  inset: auto 0 0 0;
-  max-height: 92vh;
-  border-radius: 20px 20px 0 0;
-  animation: slideInUp 240ms var(--ease) both;
-}
-@media (min-width: 768px) {
-  .slide-over {
-    inset: 0 0 0 auto;
-    width: 440px;
-    max-height: none;
-    border-radius: 20px 0 0 20px;
-    animation: slideInRight 240ms var(--ease) both;
-  }
 }
 
 /* toast — centred by layout, not transform: riseIn's final keyframe (transform: none)

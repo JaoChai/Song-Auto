@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, type GenerateBody, type Song } from '../lib/api';
+import { loadDraft, saveDraft, type Draft } from '../lib/draft';
 import { SpinnerIcon } from './icons';
 
 const LYRICS_MAX = 5000;
@@ -11,13 +12,19 @@ interface Props {
 }
 
 export function CreatePanel({ onCreated }: Props) {
-  const [lyrics, setLyrics] = useState('');
-  const [style, setStyle] = useState('');
-  const [title, setTitle] = useState('');
-  const [instrumental, setInstrumental] = useState(false);
-  const [negativeTags, setNegativeTags] = useState('');
+  const [draft, setDraft] = useState<Draft>(loadDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { lyrics, style, title, instrumental, negativeTags } = draft;
+
+  // the draft is the only thing worth persisting — everything else is transient
+  useEffect(() => {
+    saveDraft(draft);
+  }, [draft]);
+
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   const canSubmit = Boolean(style.trim() && title.trim() && (instrumental || lyrics.trim())) && !busy;
 
@@ -57,7 +64,7 @@ export function CreatePanel({ onCreated }: Props) {
         duration: null,
         createdAt: new Date().toISOString(),
       });
-      setLyrics(''); setStyle(''); setTitle(''); setInstrumental(false); setNegativeTags('');
+      // the form deliberately keeps its values: tweak a word, create again
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้างเพลงไม่สำเร็จ');
     } finally {
@@ -66,13 +73,13 @@ export function CreatePanel({ onCreated }: Props) {
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6 p-6">
+    <form onSubmit={submit} className="flex min-h-full flex-col gap-6 p-6">
       {/* Instrumental */}
       <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--text-2)' }}>
         <input
           type="checkbox"
           checked={instrumental}
-          onChange={(e) => setInstrumental(e.target.checked)}
+          onChange={(e) => set('instrumental', e.target.checked)}
           className="h-4 w-4 accent-[#22c55e]"
         />
         Instrumental — ไม่มีคำร้อง
@@ -91,7 +98,7 @@ export function CreatePanel({ onCreated }: Props) {
             id="lyrics"
             className="input"
             value={lyrics}
-            onChange={(e) => setLyrics(e.target.value)}
+            onChange={(e) => set('lyrics', e.target.value)}
             rows={10}
             maxLength={LYRICS_MAX}
             placeholder={'[Verse 1]\n…\n\n[Chorus]\n…'}
@@ -113,7 +120,7 @@ export function CreatePanel({ onCreated }: Props) {
           id="style"
           className="input"
           value={style}
-          onChange={(e) => setStyle(e.target.value)}
+          onChange={(e) => set('style', e.target.value)}
           maxLength={STYLE_MAX}
           placeholder="dream pop, ethereal, lush reverb"
         />
@@ -131,7 +138,7 @@ export function CreatePanel({ onCreated }: Props) {
           id="title"
           className="input"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => set('title', e.target.value)}
           maxLength={TITLE_MAX}
           placeholder="ชื่อเพลง"
         />
@@ -146,7 +153,7 @@ export function CreatePanel({ onCreated }: Props) {
           aria-label="Exclude styles"
           className="input mt-3"
           value={negativeTags}
-          onChange={(e) => setNegativeTags(e.target.value)}
+          onChange={(e) => set('negativeTags', e.target.value)}
           placeholder="heavy metal, upbeat drums"
         />
       </details>
@@ -158,20 +165,22 @@ export function CreatePanel({ onCreated }: Props) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={!canSubmit}
-        className="btn-primary mt-auto inline-flex items-center justify-center gap-2"
-      >
-        {busy ? (
-          <>
-            <SpinnerIcon className="h-4 w-4 animate-spin" />
-            Creating…
-          </>
-        ) : (
-          'Create song'
-        )}
-      </button>
+      <div className="form-footer">
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="btn-primary inline-flex items-center justify-center gap-2"
+        >
+          {busy ? (
+            <>
+              <SpinnerIcon className="h-4 w-4 animate-spin" />
+              Creating…
+            </>
+          ) : (
+            'Create song'
+          )}
+        </button>
+      </div>
     </form>
   );
 }

@@ -1,18 +1,17 @@
-import { PlusIcon, SearchIcon } from './icons';
+import { SearchIcon } from './icons';
 
 interface Props {
   query: string;
   onQueryChange: (q: string) => void;
-  onCreate: () => void;
 }
 
-export function AppHeader({ query, onQueryChange, onCreate }: Props) {
+export function AppHeader({ query, onQueryChange }: Props) {
   return (
     <header
       className="sticky top-0 z-20 shrink-0"
       style={{ background: 'rgba(13,13,15,0.9)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)' }}
     >
-      <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 md:gap-5 md:px-6">
+      <div className="flex h-14 w-full items-center gap-3 px-4 md:gap-5 md:px-6">
         <span className="shrink-0 text-[15px] font-semibold tracking-tight">
           Song<span style={{ color: 'var(--accent)' }}>-</span>Auto
         </span>
@@ -33,16 +32,6 @@ export function AppHeader({ query, onQueryChange, onCreate }: Props) {
             style={{ paddingLeft: 38, minHeight: 40 }}
           />
         </div>
-
-        <button
-          type="button"
-          onClick={onCreate}
-          className="btn-primary inline-flex shrink-0 items-center justify-center gap-1.5"
-          style={{ width: 'auto', minHeight: 40, padding: '0 16px', fontSize: 14 }}
-        >
-          <PlusIcon className="h-4 w-4" />
-          <span className="hidden sm:inline">สร้างเพลง</span>
-        </button>
       </div>
     </header>
   );
