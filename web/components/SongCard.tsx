@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { fmtDuration, songAudioUrl, type Song } from '../lib/api';
 import { CoverArt } from './CoverArt';
-import { DownloadIcon, PauseIcon, PlayIcon, SpinnerIcon } from './icons';
+import { DownloadIcon, PauseIcon, PersonaIcon, PlayIcon, SpinnerIcon } from './icons';
 
 const elapsed = (iso: string): string => {
   const secs = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -15,13 +16,37 @@ interface Props {
   isPlaying: boolean;
   onPlay: (song: Song) => void;
   onRetry: (song: Song) => void;
+  onCreatePersona: (song: Song, name: string, description: string) => Promise<void>;
 }
 
-export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRetry }: Props) {
+export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRetry, onCreatePersona }: Props) {
   const success = song.status === 'SUCCESS';
   const audioUrl = success ? songAudioUrl(song) : null;
   const playable = audioUrl !== null;
   const pending = song.status === 'PENDING';
+  const canPersona = success && song.sunoId !== null;
+  const [personaOpen, setPersonaOpen] = useState(false);
+  const [personaName, setPersonaName] = useState('');
+  // kie บอกว่าคำอธิบายยิ่งละเอียดยิ่งจับลักษณะดนตรีได้ดี — ตั้งต้นจากสไตล์ของเพลงนี้ให้เลย
+  const [personaDesc, setPersonaDesc] = useState(
+    [song.tags, song.style].filter(Boolean).join(', '),
+  );
+  const [personaBusy, setPersonaBusy] = useState(false);
+  const [personaError, setPersonaError] = useState<string | null>(null);
+
+  const submitPersona = async () => {
+    setPersonaBusy(true);
+    setPersonaError(null);
+    try {
+      await onCreatePersona(song, personaName, personaDesc);
+      setPersonaOpen(false);
+      setPersonaName('');
+    } catch (e) {
+      setPersonaError(e instanceof Error ? e.message : 'สร้าง persona ไม่สำเร็จ');
+    } finally {
+      setPersonaBusy(false);
+    }
+  };
 
   return (
     <article className="group flex flex-col gap-3">
@@ -89,6 +114,19 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             <DownloadIcon className="h-4 w-4" />
           </a>
         )}
+
+        {canPersona && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setPersonaOpen((v) => !v); }}
+            aria-label={`ทำ persona จาก ${song.title || 'Untitled'}`}
+            aria-expanded={personaOpen}
+            className="icon-btn absolute right-1.5 top-11 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
+            style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--text)' }}
+          >
+            <PersonaIcon className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div className="min-w-0">
@@ -112,6 +150,50 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             >
               ลองใหม่
             </button>
+          </div>
+        )}
+
+        {personaOpen && (
+          <div className="persona-panel">
+            <label className="sr-only" htmlFor={`persona-name-${song.id}`}>ชื่อ persona</label>
+            <input
+              id={`persona-name-${song.id}`}
+              className="input"
+              value={personaName}
+              onChange={(e) => setPersonaName(e.target.value)}
+              placeholder="ชื่อ persona"
+            />
+            <label className="sr-only" htmlFor={`persona-desc-${song.id}`}>คำอธิบาย persona</label>
+            <textarea
+              id={`persona-desc-${song.id}`}
+              className="input"
+              value={personaDesc}
+              onChange={(e) => setPersonaDesc(e.target.value)}
+              rows={3}
+              placeholder="แนวดนตรี อารมณ์ เครื่องดนตรี ลักษณะเสียงร้อง"
+            />
+            {personaError && (
+              <p role="alert" className="text-xs" style={{ color: '#f87171' }}>{personaError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void submitPersona()}
+                disabled={personaBusy || !personaName.trim() || !personaDesc.trim()}
+                className="btn-primary"
+                style={{ minHeight: 38, fontSize: 14 }}
+              >
+                {personaBusy ? 'กำลังสร้าง…' : 'สร้าง'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPersonaOpen(false)}
+                className="cursor-pointer text-sm"
+                style={{ color: 'var(--text-3)' }}
+              >
+                ยกเลิก
+              </button>
+            </div>
           </div>
         )}
       </div>

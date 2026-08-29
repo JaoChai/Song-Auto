@@ -8,9 +8,11 @@ import { Toast } from './components/Toast';
 import { songAudioUrl, type Song } from './lib/api';
 import { filterSongs } from './lib/filter';
 import { useSongs } from './hooks/useSongs';
+import { usePersonas } from './hooks/usePersonas';
 
 export default function App() {
   const { songs, loaded, authNeeded, refresh, upsert, remove } = useSongs();
+  const { personas, add: addPersona } = usePersonas();
   const [query, setQuery] = useState('');
   // only meaningful under 768px — both panels are visible side by side above it
   const [tab, setTab] = useState<'create' | 'library'>('library');
@@ -92,6 +94,7 @@ export default function App() {
           className={`aside-divider ${tab === 'create' ? 'flex' : 'hidden'} min-h-0 w-full flex-col overflow-y-auto md:flex md:w-[380px] md:shrink-0`}
         >
           <CreatePanel
+            personas={personas}
             onCreated={(created) => {
               upsert(created);
               setActiveId(created[0].id);
@@ -114,6 +117,10 @@ export default function App() {
             upsert={upsert}
             remove={remove}
             onRetryFailed={setToast}
+            onPersonaCreated={(persona) => {
+              addPersona(persona);
+              setToast(`เพิ่ม persona “${persona.name}” แล้ว`);
+            }}
           />
         </main>
       </div>

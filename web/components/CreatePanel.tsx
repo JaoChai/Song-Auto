@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type GenerateBody, type Song } from '../lib/api';
+import { api, type GenerateBody, type Persona, type Song } from '../lib/api';
 import { loadDraft, saveDraft, type Draft } from '../lib/draft';
 import { SpinnerIcon } from './icons';
 
@@ -8,15 +8,16 @@ const STYLE_MAX = 1000;
 const TITLE_MAX = 80;
 
 interface Props {
+  personas: Persona[];
   onCreated: (songs: Song[]) => void;
 }
 
-export function CreatePanel({ onCreated }: Props) {
+export function CreatePanel({ personas, onCreated }: Props) {
   const [draft, setDraft] = useState<Draft>(loadDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { lyrics, style, title, instrumental, negativeTags } = draft;
+  const { lyrics, style, title, instrumental, negativeTags, personaId, personaModel } = draft;
 
   // the draft is the only thing worth persisting — everything else is transient
   useEffect(() => {
@@ -43,6 +44,7 @@ export function CreatePanel({ onCreated }: Props) {
         instrumental,
         model: 'V5',
         ...(negativeTags ? { negativeTags } : {}),
+        ...(personaId && personaModel ? { personaId, personaModel } : {}),
       };
       const created = await api<{ songs: Song[] }>('/api/generate', {
         method: 'POST',
@@ -128,6 +130,57 @@ export function CreatePanel({ onCreated }: Props) {
           placeholder="ชื่อเพลง"
         />
       </div>
+
+      {/* Persona — ซ่อนทั้งก้อนถ้ายังไม่มีสักอัน ฟอร์มจะได้ไม่รกโดยไม่จำเป็น */}
+      {personas.length > 0 && (
+        <div>
+          <label htmlFor="persona" className="field-label">ใช้ persona</label>
+          <select
+            id="persona"
+            className="input"
+            value={personaId}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDraft((d) => ({
+                ...d,
+                personaId: next,
+                // เลือก persona ครั้งแรกให้ตั้งต้นที่แนวดนตรี · ยกเลิกแล้วล้างโหมดทิ้ง
+                personaModel: next ? (d.personaModel || 'style_persona') : '',
+              }));
+            }}
+          >
+            <option value="">ไม่ใช้ persona</option>
+            {personas.map((p) => (
+              <option key={p.id} value={p.personaId}>{p.name}</option>
+            ))}
+          </select>
+
+          {personaId && (
+            <div className="mt-2 flex gap-4 text-sm" style={{ color: 'var(--text-2)' }}>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="personaModel"
+                  className="accent-[#22c55e]"
+                  checked={personaModel === 'style_persona'}
+                  onChange={() => set('personaModel', 'style_persona')}
+                />
+                เอาแนวดนตรี
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="personaModel"
+                  className="accent-[#22c55e]"
+                  checked={personaModel === 'voice_persona'}
+                  onChange={() => set('personaModel', 'voice_persona')}
+                />
+                เอาเสียงร้อง
+              </label>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Exclude styles — collapsed */}
       <details className="text-sm">
