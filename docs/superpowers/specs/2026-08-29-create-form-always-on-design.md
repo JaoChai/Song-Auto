@@ -63,10 +63,12 @@
 ```
 
 - ค่าเริ่มต้น = แท็บ "คลัง"
-- ปุ่ม "สร้างเพลง" ใน header ยังอยู่บนมือถือ แต่เปลี่ยนหน้าที่เป็นตัวพาไปแท็บ "สร้าง"
+- ปุ่ม "สร้างเพลง" ใน header ถูกตัดทิ้งทั้ง desktop และมือถือ — บนมือถือแถบสลับอยู่ใต้ header อยู่แล้ว ปุ่มจะทำหน้าที่ซ้ำ
 - **สลับแท็บไม่ทำลาย state ของฟอร์ม** — ทั้งสองแท็บ mount อยู่เสมอ ซ่อนด้วย CSS
   (ไม่ใช่ conditional unmount) เพื่อไม่ให้ค่าและตำแหน่ง scroll หาย
-- ใช้ `role="tablist"` / `role="tab"` / `aria-selected` ให้ screen reader อ่านถูก
+- ใช้ปุ่มธรรมดา 2 ปุ่มพร้อม `aria-pressed` **ไม่ใช่** `role="tablist"/"tab"` — เพราะบน desktop
+  ทั้งสองฝั่งแสดงพร้อมกัน จึงไม่ใช่รูปแบบ tab จริง การประกาศ `role="tabpanel"` ค้างไว้บน desktop
+  จะทำให้ screen reader อ่านผิดความจริง
 
 ### 2. Draft persistence
 
@@ -116,7 +118,7 @@ export function saveDraft(d: Draft): void
 | `web/lib/draft.ts` | **สร้างใหม่** — load/save draft |
 | `web/components/CreatePanel.tsx` | ตั้งต้นจาก draft, บันทึกทุกการเปลี่ยน, ไม่ล้างค่าหลังสร้าง, ปุ่ม sticky |
 | `web/App.tsx` | ตัด `panelOpen`/`SlideOver` ออก, layout 2 คอลัมน์ + tab state ของมือถือ |
-| `web/components/AppHeader.tsx` | ปุ่มสร้างซ่อนบน desktop, บนมือถือพาไปแท็บ "สร้าง" |
+| `web/components/AppHeader.tsx` | ตัดปุ่มสร้างทิ้ง เหลือแบรนด์ + ช่องค้นหา |
 | `web/index.css` | เพิ่ม layout/tab styles, ลบ slide-over |
 | `web/components/SlideOver.tsx` | **ลบ** |
 | `tests/draft.test.ts` | **สร้างใหม่** |
