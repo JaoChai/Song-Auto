@@ -10,7 +10,7 @@ import { filterSongs } from './lib/filter';
 import { useSongs } from './hooks/useSongs';
 
 export default function App() {
-  const { songs, loaded, authNeeded, refresh, upsert } = useSongs();
+  const { songs, loaded, authNeeded, refresh, upsert, remove } = useSongs();
   const [query, setQuery] = useState('');
   // only meaningful under 768px — both panels are visible side by side above it
   const [tab, setTab] = useState<'create' | 'library'>('library');
@@ -92,11 +92,11 @@ export default function App() {
           className={`aside-divider ${tab === 'create' ? 'flex' : 'hidden'} min-h-0 w-full flex-col overflow-y-auto md:flex md:w-[380px] md:shrink-0`}
         >
           <CreatePanel
-            onCreated={(song) => {
-              upsert(song);
-              setActiveId(song.id);
+            onCreated={(created) => {
+              upsert(created);
+              setActiveId(created[0].id);
               wasPending.current = true;
-              // on desktop the library is already in view; on mobile show the new card
+              // on desktop the library is already in view; on mobile show the new cards
               setTab('library');
               setToast('เริ่มสร้างเพลงแล้ว — จะขึ้นในคลังเมื่อเสร็จ');
             }}
@@ -112,6 +112,7 @@ export default function App() {
             isPlaying={isPlaying}
             onPlay={play}
             upsert={upsert}
+            remove={remove}
             onRetryFailed={setToast}
           />
         </main>

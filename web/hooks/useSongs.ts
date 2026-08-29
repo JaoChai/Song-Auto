@@ -33,6 +33,11 @@ export function useSongs() {
       polled = true;
       void api<{ status: string; song?: Song }>('/api/tasks/' + target.id)
         .then((res) => {
+          // the server collapsed this row (the task produced fewer tracks, or failed)
+          if (res.status === 'GONE') {
+            setSongs((prev) => prev.filter((s) => s.id !== target.id));
+            return;
+          }
           if (res.song || res.status !== 'PENDING') {
             setSongs((prev) =>
               res.song
@@ -74,18 +79,26 @@ export function useSongs() {
     [],
   );
 
-  /** Insert/replace a song row (used by CreatePanel and poll results). */
-  const upsert = useCallback((song: Song) => {
+  /** Insert/replace song rows (used by CreatePanel, retry, and poll results). */
+  const upsert = useCallback((incoming: Song | Song[]) => {
+    const list = Array.isArray(incoming) ? incoming : [incoming];
     setSongs((prev) => {
-      const idx = prev.findIndex((s) => s.id === song.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = song;
-        return next;
+      const next = [...prev];
+      // walk backwards so a batch of new songs keeps its given order at the top
+      for (let i = list.length - 1; i >= 0; i--) {
+        const song = list[i];
+        const idx = next.findIndex((s) => s.id === song.id);
+        if (idx >= 0) next[idx] = song;
+        else next.unshift(song);
       }
-      return [song, ...prev];
+      return next;
     });
   }, []);
 
-  return { songs, loaded, authNeeded, refresh, upsert };
+  /** Drop a song row that no longer exists on the server. */
+  const remove = useCallback((id: string) => {
+    setSongs((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  return { songs, loaded, authNeeded, refresh, upsert, remove };
 }

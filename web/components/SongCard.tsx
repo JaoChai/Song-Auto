@@ -10,13 +10,14 @@ const elapsed = (iso: string): string => {
 
 interface Props {
   song: Song;
+  showVariant: boolean;
   isActive: boolean;
   isPlaying: boolean;
   onPlay: (song: Song) => void;
   onRetry: (song: Song) => void;
 }
 
-export function SongCard({ song, isActive, isPlaying, onPlay, onRetry }: Props) {
+export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRetry }: Props) {
   const success = song.status === 'SUCCESS';
   const audioUrl = success ? songAudioUrl(song) : null;
   const playable = audioUrl !== null;
@@ -45,6 +46,10 @@ export function SongCard({ song, isActive, isPlaying, onPlay, onRetry }: Props) 
         }}
       >
         <CoverArt song={song} />
+
+        {showVariant && (
+          <span className="variant-badge" aria-hidden="true">v{song.variant}</span>
+        )}
 
         {pending && <div className="shimmer absolute inset-0" />}
 

@@ -40,6 +40,8 @@ export interface Song {
   imageKey: string | null;
   duration: number | null;
   createdAt: string;
+  sunoId: string | null;
+  variant: number;
 }
 
 const r2Url = (key: string | null): string | null => (key ? `/audio/${key}` : null);
