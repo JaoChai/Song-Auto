@@ -422,4 +422,107 @@ describe('API routes', () => {
     expect(store.get('s2.mp3')).toBeInstanceOf(Uint8Array);
     expect(store.has('s2.jpg')).toBe(false);
   });
+
+  it('GET /api/tasks/:id: FIRST_SUCCESS — v1 finishes, v2 keeps waiting', async () => {
+    const { env, data, store } = makeEnv([
+      rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
+    ]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({
+      taskId: 'task-1',
+      status: 'FIRST_SUCCESS',
+      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' }] },
+    });
+
+    const first = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect((await first.json() as { status: string }).status).toBe('SUCCESS');
+    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+
+    const second = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    expect(await second.json()).toEqual({ status: 'PENDING' });
+    expect(data.find((r) => r.id === 's2')!.status).toBe('PENDING');
+  });
+
+  it('GET /api/tasks/:id: SUCCESS with two tracks — each row takes its own, storing distinct suno ids', async () => {
+    const { env, data, store } = makeEnv([
+      rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
+    ]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({
+      taskId: 'task-1',
+      status: 'SUCCESS',
+      response: {
+        sunoData: [
+          { id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' },
+          { id: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 101, tags: 'warm' },
+        ],
+      },
+    });
+
+    const r1 = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    const r2 = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    const b1 = await r1.json() as { status: string; song: SongRow };
+    const b2 = await r2.json() as { status: string; song: SongRow };
+
+    expect(b1.song.sunoId).toBe('a1');
+    expect(b2.song.sunoId).toBe('a2');
+    expect(b1.song.tags).toBe('calm');
+    expect(b2.song.tags).toBe('warm');
+    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+    expect(store.get('s2.mp3')).toBeInstanceOf(Uint8Array);
+    expect(data).toHaveLength(2);
+  });
+
+  it('GET /api/tasks/:id: SUCCESS with only one track — the spare row is deleted and reported GONE', async () => {
+    const { env, data } = makeEnv([
+      rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
+    ]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({
+      taskId: 'task-1',
+      status: 'SUCCESS',
+      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' }] },
+    });
+
+    const res = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'GONE' });
+    expect(data.map((r) => r.id)).toEqual(['s1']);
+  });
+
+  it('GET /api/tasks/:id: FAILED — v1 records the error, v2 is deleted', async () => {
+    const { env, data } = makeEnv([
+      rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
+    ]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({ taskId: 'task-1', status: 'GENERATE_AUDIO_FAILED', errorMessage: 'engine died' });
+
+    const r2 = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    expect(await r2.json()).toEqual({ status: 'GONE' });
+
+    const r1 = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(await r1.json()).toEqual({ status: 'FAILED', error: 'engine died' });
+
+    expect(data.map((r) => r.id)).toEqual(['s1']);
+    expect(data[0].status).toBe('FAILED');
+  });
+
+  it('GET /api/tasks/:id: polling an already-finished row downloads nothing and does not call kie', async () => {
+    const { env } = makeEnv([{
+      ...rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      status: 'SUCCESS', r2_key: 's1.mp3', suno_id: 'a1',
+    } as Row]);
+    const cookie = await cookieFor('pw');
+    const { mock } = stubKieAndMp3({ taskId: 'task-1', status: 'SUCCESS', response: { sunoData: [] } });
+
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    const body = await res.json() as { status: string; song: SongRow };
+    expect(body.status).toBe('SUCCESS');
+    expect(body.song.r2Key).toBe('s1.mp3');
+    expect(mock).not.toHaveBeenCalled();
+  });
 });
