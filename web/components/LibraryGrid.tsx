@@ -67,7 +67,7 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
       <div className="card flex h-72 flex-col items-center justify-center gap-2 border-dashed text-center" style={{ background: 'transparent' }}>
         <p className="font-medium">คลังเพลงว่างอยู่</p>
         <p className="max-w-xs text-sm" style={{ color: 'var(--text-2)' }}>
-          กด “สร้างเพลง” ด้านบนเพื่อสร้างเพลงแรกของคุณ
+          กรอกฟอร์มสร้างเพลงเพื่อเริ่มเพลงแรกของคุณ
         </p>
       </div>
     );

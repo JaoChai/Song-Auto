@@ -175,22 +175,34 @@ textarea.input {
   font-weight: 500;
 }
 
-/* ปุ่มสร้างปักหมุดที่ก้นฟอร์ม — ช่อง Lyrics สูง ปุ่มต้องไม่ตกจอ */
+/* ปุ่มสร้างอยู่ก้นฟอร์มเสมอ */
 .form-footer {
-  position: sticky;
-  bottom: 0;
   margin-top: auto;
   padding-top: 12px;
   padding-bottom: 4px;
   background: var(--bg);
 }
+/* ปักหมุดเฉพาะจอกว้าง — บนมือถือปุ่มลอยจะบังช่องที่กำลังกรอก */
+@media (min-width: 768px) {
+  .form-footer {
+    position: sticky;
+    bottom: 0;
+  }
+}
 
-/* แถบสลับ สร้าง / คลัง — เห็นเฉพาะจอแคบ */
+/* แถบสลับ สร้าง / คลัง — เห็นเฉพาะจอแคบ
+   (ซ่อนด้วย media query ของเราเอง ไม่ใช่ `md:hidden` เพราะ Tailwind v4 วาง utility
+   ไว้ใน @layer ส่วนไฟล์นี้อยู่นอก layer จึงชนะ utility เสมอ) */
 .seg {
   display: flex;
   gap: 4px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
+}
+@media (min-width: 768px) {
+  .seg {
+    display: none;
+  }
 }
 .seg-btn {
   flex: 1;

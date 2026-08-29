@@ -77,7 +77,7 @@ export default function App() {
       <AppHeader query={query} onQueryChange={setQuery} />
 
       {/* narrow screens can't show both panels — switch between them */}
-      <div className="seg md:hidden">
+      <div className="seg">
         <button type="button" className="seg-btn" aria-pressed={tab === 'create'} onClick={() => setTab('create')}>
           สร้าง
         </button>
