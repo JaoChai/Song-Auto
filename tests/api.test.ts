@@ -511,6 +511,35 @@ describe('API routes', () => {
     expect(data[0].status).toBe('FAILED');
   });
 
+  it('GET /api/tasks/:id: SUCCESS with zero tracks — v1 records a FAILED error instead of vanishing', async () => {
+    const { env, data } = makeEnv([
+      rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
+    ]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({ taskId: 'task-1', status: 'SUCCESS', response: { sunoData: [] } });
+
+    const r1 = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(await r1.json()).toEqual({ status: 'FAILED', error: expect.any(String) });
+
+    const s1 = data.find((r) => r.id === 's1');
+    expect(s1).toBeDefined();
+    expect(s1?.status).toBe('FAILED');
+  });
+
+  it('GET /api/tasks/:id: SUCCESS with zero tracks — v2 is still deleted and reported GONE', async () => {
+    const { env, data } = makeEnv([
+      rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
+      rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
+    ]);
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({ taskId: 'task-1', status: 'SUCCESS', response: { sunoData: [] } });
+
+    const r2 = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    expect(await r2.json()).toEqual({ status: 'GONE' });
+    expect(data.map((r) => r.id)).toEqual(['s1']);
+  });
+
   it('GET /api/tasks/:id: polling an already-finished row downloads nothing and does not call kie', async () => {
     const { env } = makeEnv([{
       ...rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),

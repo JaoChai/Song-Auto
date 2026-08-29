@@ -88,7 +88,8 @@ const MAX_DOWNLOAD_ATTEMPTS = 3;
 /**
  * GET /api/tasks/:id — poll kie once for this row's task, then take the track that belongs to
  * this row (`sunoData[variant - 1]`). A row whose track never arrives — the job finished with
- * fewer tracks, or failed — is deleted and reported as GONE so the card leaves the library.
+ * fewer tracks, or failed — is deleted and reported as GONE, except variant 1, which is kept
+ * as a FAILED row so the generation doesn't silently vanish from the library.
  */
 export async function getTask(ctx: Context<{ Bindings: Env }>) {
   const id = ctx.req.param('id');
@@ -105,18 +106,19 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
     await ctx.env.DB.prepare('DELETE FROM songs WHERE id = ?').bind(id).run();
     return c(ctx).json({ status: 'GONE' });
   };
+  // the error belongs on one card, not two — variant 1 keeps a FAILED row, others are deleted
+  const fail = async (message: string) => {
+    if (variant > 1) return drop();
+    await ctx.env.DB.prepare(`UPDATE songs SET status = 'FAILED', error = ? WHERE id = ?`)
+      .bind(message, id).run();
+    row.status = 'FAILED';
+    row.error = message;
+    return c(ctx).json({ status: 'FAILED', error: message });
+  };
 
   const poll = await kiePollTask(ctx.env, row.task_id as string);
 
-  if (poll.kind === 'FAILED') {
-    // the error belongs on one card, not two
-    if (variant > 1) return drop();
-    await ctx.env.DB.prepare(`UPDATE songs SET status = 'FAILED', error = ? WHERE id = ?`)
-      .bind(poll.error, id).run();
-    row.status = 'FAILED';
-    row.error = poll.error;
-    return c(ctx).json({ status: 'FAILED', error: poll.error });
-  }
+  if (poll.kind === 'FAILED') return fail(poll.error);
 
   if (poll.kind === 'TRANSIENT') {
     // keep PENDING in D1; UI retries later
@@ -125,8 +127,8 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
 
   const track = poll.tracks[variant - 1];
   if (!track || !track.audioUrl) {
-    // the job is done and this row's track never came — collapse the placeholder
-    if (poll.complete) return drop();
+    // the job is done and this row's track never came
+    if (poll.complete) return fail('งานสร้างเพลงเสร็จแล้ว แต่ไม่ได้รับไฟล์เพลงกลับมา');
     return c(ctx).json({ status: 'PENDING' });
   }
 

@@ -48,7 +48,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
         <CoverArt song={song} />
 
         {showVariant && (
-          <span className="variant-badge" aria-hidden="true">v{song.variant}</span>
+          <span className="variant-badge" aria-label={`เวอร์ชัน ${song.variant}`}>v{song.variant}</span>
         )}
 
         {pending && <div className="shimmer absolute inset-0" />}
