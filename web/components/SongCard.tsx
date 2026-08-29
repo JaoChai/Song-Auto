@@ -24,13 +24,14 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
   const audioUrl = success ? songAudioUrl(song) : null;
   const playable = audioUrl !== null;
   const pending = song.status === 'PENDING';
-  const canPersona = success && song.sunoId !== null;
+  const canPersona = success && Boolean(song.sunoId);
   const [personaOpen, setPersonaOpen] = useState(false);
   const [personaName, setPersonaName] = useState('');
   // kie บอกว่าคำอธิบายยิ่งละเอียดยิ่งจับลักษณะดนตรีได้ดี — ตั้งต้นจากสไตล์ของเพลงนี้ให้เลย
-  const [personaDesc, setPersonaDesc] = useState(
-    [song.tags, song.style].filter(Boolean).join(', '),
-  );
+  const personaPrefill = [song.tags, song.style].filter(Boolean).join(', ');
+  const [personaDesc, setPersonaDesc] = useState(personaPrefill);
+  // การ์ดไม่ remount ตอนเพลงเสร็จ — ถ้าผู้ใช้ยังไม่ได้พิมพ์เอง ให้เติมค่าล่าสุดตอนกางแผง
+  const [personaDescEdited, setPersonaDescEdited] = useState(false);
   const [personaBusy, setPersonaBusy] = useState(false);
   const [personaError, setPersonaError] = useState<string | null>(null);
 
@@ -121,6 +122,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             onClick={(e) => {
               e.stopPropagation();
               if (personaOpen) setPersonaError(null);
+              else if (!personaDescEdited) setPersonaDesc(personaPrefill);
               setPersonaOpen(!personaOpen);
             }}
             aria-label={`ทำ persona จาก ${song.title || 'Untitled'}`}
@@ -172,7 +174,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
               id={`persona-desc-${song.id}`}
               className="input"
               value={personaDesc}
-              onChange={(e) => setPersonaDesc(e.target.value)}
+              onChange={(e) => { setPersonaDesc(e.target.value); setPersonaDescEdited(true); }}
               rows={3}
               placeholder="แนวดนตรี อารมณ์ เครื่องดนตรี ลักษณะเสียงร้อง"
             />
