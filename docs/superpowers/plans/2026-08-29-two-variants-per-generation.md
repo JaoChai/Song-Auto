@@ -156,10 +156,16 @@ const makeDb = (rows: Row[] = []) => {
                 Object.assign(find(id)!, { status: 'FAILED', error });
                 return { success: true };
               }
-              // SUCCESS update: (r2Key, imageKey, tags, duration, sunoId, id)
-              const [r2_key, image_key, tags, duration, suno_id, id] =
-                args as [string, string | null, string | null, number | null, string, string];
-              Object.assign(find(id)!, { status: 'SUCCESS', r2_key, image_key, tags, duration, suno_id, error: null });
+              // SUCCESS update: (r2Key, imageKey, tags, duration, [sunoId,] id)
+              // suno_id เข้ามาใน UPDATE ตอน Task 4 — อ่านจาก SQL ไม่ใช่จำนวน args
+              const hasSunoId = S.includes('SUNO_ID = ?');
+              const [r2_key, image_key, tags, duration] =
+                args as [string, string | null, string | null, number | null];
+              const rowId = args[hasSunoId ? 5 : 4] as string;
+              Object.assign(find(rowId)!, {
+                status: 'SUCCESS', r2_key, image_key, tags, duration, error: null,
+                ...(hasSunoId ? { suno_id: args[4] as string } : {}),
+              });
               return { success: true };
             },
           };
