@@ -131,6 +131,32 @@ describe('API routes', () => {
     expect(lastSql.value).toMatch(/INSERT INTO songs/i);
   });
 
+  it('POST /api/generate: ส่ง duration ต่อไปให้ kie', async () => {
+    const { env } = makeEnv();
+    const cookie = await cookieFor('pw');
+    const { mock } = stubKieAndMp3({ taskId: 't', status: 'PENDING', response: { sunoData: [] } });
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ...baseInput, style: 'lo-fi', title: 'Rain', duration: 150 }),
+    }, env);
+    expect(res.status).toBe(201);
+    const sent = JSON.parse((mock.mock.calls[0][1] as RequestInit).body as string);
+    expect(sent.duration).toBe(150);
+  });
+
+  it('POST /api/generate: ปฏิเสธ duration นอกช่วงด้วย 400', async () => {
+    const { env } = makeEnv();
+    const cookie = await cookieFor('pw');
+    stubKieAndMp3({ taskId: 't', status: 'PENDING', response: { sunoData: [] } });
+    const res = await app.request('/api/generate', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ...baseInput, style: 'lo-fi', title: 'Rain', duration: 900 }),
+    }, env);
+    expect(res.status).toBe(400);
+  });
+
   it('POST /api/generate: instrumental custom-mode request with no prompt key at all still inserts rows (prompt defaults to empty string, not undefined)', async () => {
     const { env, data } = makeEnv();
     const cookie = await cookieFor('pw');
