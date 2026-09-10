@@ -6,6 +6,7 @@ import type { Env } from './types';
 import { backfillSunoId, createSong, extendSong, getTask, listSongs } from './routes';
 import { getAudio } from './audio';
 import { createPersona, listPersonas } from './personas';
+import { createLyrics, getLyrics } from './lyrics';
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -37,6 +38,8 @@ app.post('/api/songs/backfill-suno-id', backfillSunoId);
 app.post('/api/songs/:id/extend', extendSong);
 app.post('/api/personas', createPersona);
 app.get('/api/personas', listPersonas);
+app.post('/api/lyrics', createLyrics);
+app.get('/api/lyrics/:taskId', getLyrics);
 // audio route also sits behind authMiddleware (path starts with /audio, not exempted)
 app.get('/audio/:key', getAudio);
 
