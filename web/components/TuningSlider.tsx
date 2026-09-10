@@ -45,7 +45,14 @@ export function TuningSlider({
             <InfoIcon className="h-3.5 w-3.5" />
           </span>
         </label>
-        <span className="tune-slider-pct">{isSet ? format(current) : 'อัตโนมัติ'}</span>
+        <span className="tune-slider-value">
+          <span className="tune-slider-pct">{isSet ? format(current) : 'อัตโนมัติ'}</span>
+          {isSet && (
+            <button type="button" className="tune-slider-reset" onClick={() => onChange('')}>
+              อัตโนมัติ
+            </button>
+          )}
+        </span>
       </div>
       <div className="tune-slider-track-wrap">
         <div className="tune-slider-ticks" aria-hidden="true">

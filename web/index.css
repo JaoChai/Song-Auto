@@ -238,6 +238,26 @@ textarea.input {
   font-variant-numeric: tabular-nums;
 }
 .tune-slider[data-set='true'] .tune-slider-pct { color: var(--pink); }
+.tune-slider-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* ทางเดียวที่จะกลับไปสถานะ "ไม่ระบุ" ได้ — ตัวสไลเดอร์เองลากกลับเป็นค่าว่างไม่ได้ */
+.tune-slider-reset {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.tune-slider-reset:hover {
+  background: var(--surface-hover);
+  color: var(--ink-2);
+}
 
 .tune-slider-track-wrap {
   position: relative;
