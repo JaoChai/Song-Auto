@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   validateGenerate, kieGenerate, kiePollTask, kieCreatePersona,
   validateExtend, kieExtend, type GenerateInput, type ExtendInput,
+  validateLyricsPrompt, kieGenerateLyrics, kiePollLyrics, LYRICS_PROMPT_LIMIT,
 } from '../src/worker/kie';
 import type { Env } from '../src/worker/types';
 
@@ -523,5 +524,133 @@ describe('kieExtend', () => {
   it('โยนพร้อมบอกว่าเป็น network error', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
     await expect(kieExtend(env, baseExtend)).rejects.toThrow(/network/i);
+  });
+});
+
+describe('validateLyricsPrompt', () => {
+  it('รับคำอธิบายปกติ', () => {
+    expect(validateLyricsPrompt('เพลงเศร้าเรื่องฝนตกที่เชียงใหม่')).toBeNull();
+  });
+
+  it('ปฏิเสธคำอธิบายว่างหรือมีแต่ช่องว่าง', () => {
+    expect(validateLyricsPrompt('')).toMatch(/prompt/i);
+    expect(validateLyricsPrompt('   ')).toMatch(/prompt/i);
+  });
+
+  it(`ปฏิเสธคำอธิบายที่ยาวเกิน ${LYRICS_PROMPT_LIMIT} ตัวอักษร`, () => {
+    expect(validateLyricsPrompt('x'.repeat(LYRICS_PROMPT_LIMIT))).toBeNull();
+    expect(validateLyricsPrompt('x'.repeat(LYRICS_PROMPT_LIMIT + 1))).toMatch(/200/);
+  });
+});
+
+describe('kieGenerateLyrics', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('ยิงไป /api/v1/lyrics พร้อม prompt กับ callBackUrl แล้วคืน taskId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 'lyr-1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const taskId = await kieGenerateLyrics(env, 'เพลงเศร้า');
+    expect(taskId).toBe('lyr-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.kie.ai/api/v1/lyrics');
+    expect(init.headers.Authorization).toBe('Bearer test-key');
+    const body = JSON.parse(init.body);
+    expect(body.prompt).toBe('เพลงเศร้า');
+    expect(body.callBackUrl).toBeTruthy();
+  });
+
+  it('โยนโดยไม่ยิง fetch เมื่อคำอธิบายว่าง', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(kieGenerateLyrics(env, '  ')).rejects.toThrow(/prompt/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('โยนพร้อมรหัสเมื่อ envelope ไม่ใช่ 200', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 400, msg: 'Song Description contained artist name' }),
+    }));
+    await expect(kieGenerateLyrics(env, 'เพลงแบบ Bodyslam')).rejects.toThrow(/400/);
+  });
+});
+
+describe('kiePollLyrics', () => {
+  const poll = (data: unknown) =>
+    vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data }),
+    });
+
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('คืน PENDING ระหว่างที่ยังไม่เสร็จ', async () => {
+    vi.stubGlobal('fetch', poll({ status: 'PENDING' }));
+    expect(await kiePollLyrics(env, 'lyr-1')).toEqual({ kind: 'PENDING' });
+  });
+
+  it('แปลง response.data[] เป็น variants เมื่อ SUCCESS', async () => {
+    vi.stubGlobal('fetch', poll({
+      status: 'SUCCESS',
+      response: {
+        data: [
+          { text: '[Verse]\nบรรทัดหนึ่ง', title: 'ฝนเดือนกันยา', status: 'complete', errorMessage: '' },
+          { text: '[Verse]\nอีกแบบ', title: 'สายฝน', status: 'complete', errorMessage: '' },
+        ],
+      },
+    }));
+    const out = await kiePollLyrics(env, 'lyr-1');
+    expect(out.kind).toBe('SUCCESS');
+    if (out.kind !== 'SUCCESS') throw new Error('unreachable');
+    expect(out.variants).toHaveLength(2);
+    expect(out.variants[0].title).toBe('ฝนเดือนกันยา');
+    expect(out.variants[0].text).toContain('บรรทัดหนึ่ง');
+  });
+
+  it('ข้ามรายการที่ไม่มีเนื้อเพลง', async () => {
+    vi.stubGlobal('fetch', poll({
+      status: 'SUCCESS',
+      response: { data: [{ text: '', title: 'ว่าง' }, { text: 'มีเนื้อ', title: 'ดี' }] },
+    }));
+    const out = await kiePollLyrics(env, 'lyr-1');
+    if (out.kind !== 'SUCCESS') throw new Error('expected SUCCESS');
+    expect(out.variants).toHaveLength(1);
+    expect(out.variants[0].title).toBe('ดี');
+  });
+
+  it('คืน FAILED เมื่อสถานะเป็น GENERATE_LYRICS_FAILED', async () => {
+    vi.stubGlobal('fetch', poll({ status: 'GENERATE_LYRICS_FAILED', errorMessage: 'แต่งไม่ได้' }));
+    const out = await kiePollLyrics(env, 'lyr-1');
+    expect(out.kind).toBe('FAILED');
+    if (out.kind !== 'FAILED') throw new Error('unreachable');
+    expect(out.error).toBe('แต่งไม่ได้');
+  });
+
+  it('คืน FAILED เมื่อสถานะเป็น SENSITIVE_WORD_ERROR', async () => {
+    vi.stubGlobal('fetch', poll({ status: 'SENSITIVE_WORD_ERROR' }));
+    expect((await kiePollLyrics(env, 'lyr-1')).kind).toBe('FAILED');
+  });
+
+  it('คืน FAILED เมื่อสถานะเป็น CREATE_TASK_FAILED', async () => {
+    vi.stubGlobal('fetch', poll({ status: 'CREATE_TASK_FAILED' }));
+    expect((await kiePollLyrics(env, 'lyr-1')).kind).toBe('FAILED');
+  });
+
+  it('คืน TRANSIENT เมื่อ envelope ไม่ใช่ 200', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 455, msg: 'maintenance' }),
+    }));
+    expect((await kiePollLyrics(env, 'lyr-1')).kind).toBe('TRANSIENT');
+  });
+
+  it('คืน TRANSIENT เมื่อ network พัง', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
+    expect((await kiePollLyrics(env, 'lyr-1')).kind).toBe('TRANSIENT');
   });
 });

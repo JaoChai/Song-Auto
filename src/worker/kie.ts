@@ -322,3 +322,100 @@ export async function kieExtend(env: Env, input: ExtendInput): Promise<string> {
   if (!taskId) throw new Error('kie extend: response missing data.taskId');
   return taskId;
 }
+
+export const LYRICS_PROMPT_LIMIT = 200;
+
+export interface LyricsVariant {
+  title: string;
+  text: string;
+}
+
+export type LyricsPoll =
+  | { kind: 'PENDING' }
+  | { kind: 'SUCCESS'; variants: LyricsVariant[] }
+  | { kind: 'FAILED'; error: string }
+  | { kind: 'TRANSIENT'; note: string };
+
+const LYRICS_FAILED_STATUSES = [
+  'CREATE_TASK_FAILED',
+  'GENERATE_LYRICS_FAILED',
+  'CALLBACK_EXCEPTION',
+  'SENSITIVE_WORD_ERROR',
+] as const;
+
+export function validateLyricsPrompt(prompt: string): string | null {
+  if (!prompt || !prompt.trim()) return 'prompt is required';
+  if (prompt.length > LYRICS_PROMPT_LIMIT) {
+    return `prompt exceeds ${LYRICS_PROMPT_LIMIT} characters`;
+  }
+  return null;
+}
+
+/** POST /api/v1/lyrics — returns the kie taskId. Throws on any failure. */
+export async function kieGenerateLyrics(env: Env, prompt: string): Promise<string> {
+  const validation = validateLyricsPrompt(prompt);
+  if (validation) throw new Error(validation);
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/api/v1/lyrics`, {
+      method: 'POST',
+      headers: authHeaders(env),
+      body: JSON.stringify({ prompt, callBackUrl: CALLBACK_URL }),
+    });
+  } catch (err) {
+    throw new Error(`kie lyrics network error: ${(err as Error).message}`);
+  }
+
+  let envelope: { code: number; msg: string; data?: { taskId?: string } };
+  try {
+    envelope = await res.json();
+  } catch {
+    throw new Error(`kie lyrics: invalid JSON response (HTTP ${res.status})`);
+  }
+  if (envelope.code !== 200) {
+    throw new Error(`kie lyrics failed (code ${envelope.code}): ${envelope.msg}`);
+  }
+  const taskId = envelope.data?.taskId;
+  if (!taskId) throw new Error('kie lyrics: response missing data.taskId');
+  return taskId;
+}
+
+/**
+ * GET /api/v1/lyrics/record-info — งานแต่งเนื้อเพลงมีสถานะชุดของตัวเอง
+ * และคืนผลใน data.response.data[] ซึ่งคนละรูปกับ sunoData ของงานสร้างเพลง
+ */
+export async function kiePollLyrics(env: Env, taskId: string): Promise<LyricsPoll> {
+  let data: {
+    status?: string;
+    errorMessage?: string;
+    response?: { data?: Array<Record<string, unknown>> };
+  };
+  try {
+    const res = await fetch(
+      `${BASE_URL}/api/v1/lyrics/record-info?taskId=${encodeURIComponent(taskId)}`,
+      { headers: { Authorization: `Bearer ${env.KIE_API_KEY}` } },
+    );
+    const envelope = await res.json() as { code: number; msg: string; data: typeof data };
+    if (envelope.code !== 200) {
+      return { kind: 'TRANSIENT', note: `kie lyrics poll envelope code ${envelope.code}: ${envelope.msg}` };
+    }
+    data = envelope.data;
+  } catch (err) {
+    return { kind: 'TRANSIENT', note: `kie lyrics poll network error: ${(err as Error).message}` };
+  }
+
+  const status = data?.status;
+  if (status && (LYRICS_FAILED_STATUSES as readonly string[]).includes(status)) {
+    return { kind: 'FAILED', error: data?.errorMessage || `kie lyrics task ${status}` };
+  }
+  if (status === 'SUCCESS') {
+    const items = data?.response?.data ?? [];
+    const variants: LyricsVariant[] = items
+      .map((it) => ({ title: str(it?.title), text: str(it?.text) }))
+      .filter((v) => v.text.trim().length > 0);
+    return { kind: 'SUCCESS', variants };
+  }
+  if (status === 'PENDING') return { kind: 'PENDING' };
+  return { kind: 'TRANSIENT', note: `kie lyrics poll: unexpected status '${String(status)}'` };
+}
