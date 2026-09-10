@@ -79,6 +79,10 @@ export interface GenerateBody {
   negativeTags?: string;
   personaId?: string;
   personaModel?: 'style_persona' | 'voice_persona';
+  vocalGender?: 'm' | 'f';
+  styleWeight?: number;
+  weirdnessConstraint?: number;
+  audioWeight?: number;
 }
 
 export const LYRICS_PROMPT_MAX = 200;

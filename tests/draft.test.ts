@@ -29,6 +29,10 @@ const filled: Draft = {
   negativeTags: 'heavy metal',
   personaId: 'persona_123',
   personaModel: 'voice_persona',
+  vocalGender: 'f',
+  styleWeight: '0.65',
+  weirdnessConstraint: '0.2',
+  audioWeight: '0.8',
 };
 
 describe('draft', () => {
@@ -87,5 +91,22 @@ describe('draft', () => {
   it('drops an unknown personaModel', () => {
     globalThis.localStorage.setItem(KEY, JSON.stringify({ personaId: 'p', personaModel: 'nonsense' }));
     expect(loadDraft().personaModel).toBe('');
+  });
+
+  it('reads a draft saved before vocal/style tuning existed as unset', () => {
+    globalThis.localStorage.setItem(
+      KEY,
+      JSON.stringify({ lyrics: 'a', style: 'b', title: 'c', instrumental: false, negativeTags: '' }),
+    );
+    const d = loadDraft();
+    expect(d.vocalGender).toBe('');
+    expect(d.styleWeight).toBe('');
+    expect(d.weirdnessConstraint).toBe('');
+    expect(d.audioWeight).toBe('');
+  });
+
+  it('drops an unknown vocalGender', () => {
+    globalThis.localStorage.setItem(KEY, JSON.stringify({ vocalGender: 'nonsense' }));
+    expect(loadDraft().vocalGender).toBe('');
   });
 });

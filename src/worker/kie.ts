@@ -12,6 +12,8 @@ const PROMPT_LIMIT_CUSTOM = 5000;
 const STYLE_LIMIT = 1000;
 const TITLE_LIMIT = 80;
 
+const VOCAL_GENDERS = ['m', 'f'] as const;
+
 export interface GenerateInput {
   prompt: string;
   style?: string;
@@ -21,6 +23,10 @@ export interface GenerateInput {
   negativeTags?: string;
   personaId?: string;
   personaModel?: string;
+  vocalGender?: string;
+  styleWeight?: number;
+  weirdnessConstraint?: number;
+  audioWeight?: number;
 }
 
 const KIE_FAILED_STATUSES = [
@@ -46,6 +52,12 @@ const checkPersonaPair = (personaId?: string, personaModel?: string): string | n
   return null;
 };
 
+const checkUnitRange = (value: number | undefined, name: string): string | null => {
+  if (value === undefined) return null;
+  if (!Number.isFinite(value) || value < 0 || value > 1) return `${name} must be between 0 and 1`;
+  return null;
+};
+
 export function validateGenerate(input: GenerateInput): string | null {
   if (!promptIsOptional(input) && (!input.prompt || !input.prompt.trim())) return 'prompt is required';
   const custom = Boolean(input.style || input.title);
@@ -62,7 +74,15 @@ export function validateGenerate(input: GenerateInput): string | null {
   if (!(KIE_MODELS as readonly string[]).includes(input.model)) {
     return `unsupported model '${input.model}' (expected one of ${KIE_MODELS.join(', ')})`;
   }
-  return checkPersonaPair(input.personaId, input.personaModel);
+  if (input.vocalGender && !(VOCAL_GENDERS as readonly string[]).includes(input.vocalGender)) {
+    return `unsupported vocalGender '${input.vocalGender}' (expected one of ${VOCAL_GENDERS.join(', ')})`;
+  }
+  return (
+    checkUnitRange(input.styleWeight, 'styleWeight') ??
+    checkUnitRange(input.weirdnessConstraint, 'weirdnessConstraint') ??
+    checkUnitRange(input.audioWeight, 'audioWeight') ??
+    checkPersonaPair(input.personaId, input.personaModel)
+  );
 }
 
 const authHeaders = (env: Env): Record<string, string> => ({
@@ -92,6 +112,10 @@ export async function kieGenerate(env: Env, input: GenerateInput): Promise<strin
     body.personaId = input.personaId;
     body.personaModel = input.personaModel;
   }
+  if (input.vocalGender) body.vocalGender = input.vocalGender;
+  if (typeof input.styleWeight === 'number') body.styleWeight = input.styleWeight;
+  if (typeof input.weirdnessConstraint === 'number') body.weirdnessConstraint = input.weirdnessConstraint;
+  if (typeof input.audioWeight === 'number') body.audioWeight = input.audioWeight;
 
   let res: Response;
   try {

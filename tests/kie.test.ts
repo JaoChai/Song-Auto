@@ -326,6 +326,58 @@ describe('persona in generate', () => {
   });
 });
 
+describe('vocal/style tuning in generate', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const custom: GenerateInput = {
+    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V5',
+  };
+
+  it('accepts vocalGender m or f, rejects anything else', () => {
+    expect(validateGenerate({ ...custom, vocalGender: 'm' })).toBeNull();
+    expect(validateGenerate({ ...custom, vocalGender: 'f' })).toBeNull();
+    expect(validateGenerate({ ...custom, vocalGender: 'x' })).toMatch(/vocalGender/i);
+  });
+
+  it('accepts styleWeight/weirdnessConstraint/audioWeight within 0-1, rejects outside', () => {
+    expect(validateGenerate({ ...custom, styleWeight: 0, weirdnessConstraint: 0.5, audioWeight: 1 })).toBeNull();
+    expect(validateGenerate({ ...custom, styleWeight: -0.01 })).toMatch(/styleWeight/);
+    expect(validateGenerate({ ...custom, weirdnessConstraint: 1.01 })).toMatch(/weirdnessConstraint/);
+    expect(validateGenerate({ ...custom, audioWeight: 2 })).toMatch(/audioWeight/);
+  });
+
+  it('forwards all four fields to kie when present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 't1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, {
+      ...custom, vocalGender: 'f', styleWeight: 0.65, weirdnessConstraint: 0.2, audioWeight: 0.8,
+    });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.vocalGender).toBe('f');
+    expect(body.styleWeight).toBe(0.65);
+    expect(body.weirdnessConstraint).toBe(0.2);
+    expect(body.audioWeight).toBe(0.8);
+  });
+
+  it('omits all four keys entirely when not given', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 't1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, custom);
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect('vocalGender' in body).toBe(false);
+    expect('styleWeight' in body).toBe(false);
+    expect('weirdnessConstraint' in body).toBe(false);
+    expect('audioWeight' in body).toBe(false);
+  });
+});
+
 describe('kieCreatePersona', () => {
   beforeEach(() => { vi.unstubAllGlobals(); });
   afterEach(() => { vi.unstubAllGlobals(); });

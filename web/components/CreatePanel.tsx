@@ -20,7 +20,10 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [assistOpen, setAssistOpen] = useState(false);
 
-  const { lyrics, style, title, instrumental, negativeTags, personaId, personaModel } = draft;
+  const {
+    lyrics, style, title, instrumental, negativeTags, personaId, personaModel,
+    vocalGender, styleWeight, weirdnessConstraint, audioWeight,
+  } = draft;
 
   // the draft is the only thing worth persisting — everything else is transient
   useEffect(() => {
@@ -45,6 +48,8 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
 
   const canSubmit = Boolean(style.trim() && title.trim() && (instrumental || lyrics.trim())) && !busy;
 
+  const numOrUndefined = (v: string): number | undefined => (v.trim() === '' ? undefined : Number(v));
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
@@ -61,6 +66,12 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         model: 'V5',
         ...(negativeTags ? { negativeTags } : {}),
         ...(personaId && personaModel ? { personaId, personaModel } : {}),
+        ...(!instrumental && vocalGender ? { vocalGender } : {}),
+        ...(numOrUndefined(styleWeight) !== undefined ? { styleWeight: numOrUndefined(styleWeight) } : {}),
+        ...(numOrUndefined(weirdnessConstraint) !== undefined
+          ? { weirdnessConstraint: numOrUndefined(weirdnessConstraint) }
+          : {}),
+        ...(numOrUndefined(audioWeight) !== undefined ? { audioWeight: numOrUndefined(audioWeight) } : {}),
       };
       const created = await api<{ songs: Song[] }>('/api/generate', {
         method: 'POST',
@@ -114,6 +125,61 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         />
       </div>
 
+      {/* Style tuning */}
+      <div>
+        <label className="field-label">ปรับแต่งสไตล์ (ไม่บังคับ)</label>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="styleWeight" className="mb-1 block text-xs" style={{ color: 'var(--ink-3)' }}>
+              ยึดสไตล์
+            </label>
+            <input
+              id="styleWeight"
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              className="input"
+              value={styleWeight}
+              onChange={(e) => set('styleWeight', e.target.value)}
+              placeholder="อัตโนมัติ"
+            />
+          </div>
+          <div>
+            <label htmlFor="weirdnessConstraint" className="mb-1 block text-xs" style={{ color: 'var(--ink-3)' }}>
+              ความแปลกใหม่
+            </label>
+            <input
+              id="weirdnessConstraint"
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              className="input"
+              value={weirdnessConstraint}
+              onChange={(e) => set('weirdnessConstraint', e.target.value)}
+              placeholder="อัตโนมัติ"
+            />
+          </div>
+          <div>
+            <label htmlFor="audioWeight" className="mb-1 block text-xs" style={{ color: 'var(--ink-3)' }}>
+              น้ำหนักเสียงอ้างอิง
+            </label>
+            <input
+              id="audioWeight"
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              className="input"
+              value={audioWeight}
+              onChange={(e) => set('audioWeight', e.target.value)}
+              placeholder="อัตโนมัติ"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="h-px shrink-0" style={{ background: 'var(--line)' }} />
 
       {/* Instrumental */}
@@ -126,6 +192,45 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         />
         Instrumental — ไม่มีคำร้อง
       </label>
+
+      {/* Vocal gender */}
+      {!instrumental && (
+        <div>
+          <label className="field-label">เพศเสียงร้อง (ไม่บังคับ)</label>
+          <div className="flex gap-4 text-sm" style={{ color: 'var(--ink-2)' }}>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="vocalGender"
+                className="accent-[#6d28d9]"
+                checked={vocalGender === ''}
+                onChange={() => set('vocalGender', '')}
+              />
+              ไม่ระบุ
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="vocalGender"
+                className="accent-[#6d28d9]"
+                checked={vocalGender === 'm'}
+                onChange={() => set('vocalGender', 'm')}
+              />
+              ชาย
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="vocalGender"
+                className="accent-[#6d28d9]"
+                checked={vocalGender === 'f'}
+                onChange={() => set('vocalGender', 'f')}
+              />
+              หญิง
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Lyrics */}
       {!instrumental && (
