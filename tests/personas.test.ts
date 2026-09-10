@@ -158,3 +158,119 @@ describe('GET /api/personas', () => {
     expect(out.personas[0].description).toBe(body.description);
   });
 });
+
+describe('POST /api/personas — กฎที่ kie บังคับ', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('ตอบ 409 เมื่อเพลงนี้ทำ persona ไปแล้ว โดยไม่ยิง kie ซ้ำ', async () => {
+    const { env } = makeEnv([songRow() as never]);
+    const cookie = await cookieFor(env);
+    const fetchMock = stubPersonaOk();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const first = await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }, env);
+    expect(first.status).toBe(201);
+
+    const second = await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ...body, name: 'ชื่ออื่น' }),
+    }, env);
+
+    expect(second.status).toBe(409);
+    const out = await second.json() as { error: string };
+    expect(out.error).toContain('เสียงฝน');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('ตอบ 400 เมื่อเพลงเป็นโมเดล V3_5 ที่ kie ไม่รองรับ', async () => {
+    const { env } = makeEnv([songRow({ model: 'V3_5' }) as never]);
+    const cookie = await cookieFor(env);
+    const fetchMock = stubPersonaOk();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }, env);
+
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain('V3_5');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('ส่ง vocalStart, vocalEnd และ style ต่อให้ kie', async () => {
+    const { env } = makeEnv([songRow() as never]);
+    const cookie = await cookieFor(env);
+    const fetchMock = stubPersonaOk();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ...body, vocalStart: 12.5, vocalEnd: 32.5, style: 'Dream Pop' }),
+    }, env);
+
+    const sent = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(sent.vocalStart).toBe(12.5);
+    expect(sent.vocalEnd).toBe(32.5);
+    expect(sent.style).toBe('Dream Pop');
+  });
+
+  it('ใช้ช่วงตั้งต้น 0-30 เมื่อไม่ได้ระบุมา', async () => {
+    const { env } = makeEnv([songRow() as never]);
+    const cookie = await cookieFor(env);
+    const fetchMock = stubPersonaOk();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }, env);
+
+    const sent = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(sent.vocalStart).toBe(0);
+    expect(sent.vocalEnd).toBe(30);
+  });
+
+  it('ตอบ 400 เมื่อช่วงที่เลือกสั้นกว่า 10 วินาที', async () => {
+    const { env } = makeEnv([songRow() as never]);
+    const cookie = await cookieFor(env);
+    const fetchMock = stubPersonaOk();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ...body, vocalStart: 0, vocalEnd: 5 }),
+    }, env);
+
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('แปลง 409 ที่มาจาก kie เป็นข้อความไทย', async () => {
+    const { env } = makeEnv([songRow() as never]);
+    const cookie = await cookieFor(env);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 409, msg: 'Persona already exists for this music' }),
+    }));
+
+    const res = await app.request('/api/personas', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }, env);
+
+    expect(res.status).toBe(409);
+    expect((await res.json() as { error: string }).error).toContain('เพลงนี้ทำ persona ไปแล้ว');
+  });
+});

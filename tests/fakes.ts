@@ -38,12 +38,16 @@ const makeDb = (rows: Row[] = []) => {
       const isList = S.startsWith('SELECT') && !S.includes('WHERE');
       const isFailedUpdate = S.includes("SET STATUS = 'FAILED'");
       const isPersonas = S.includes('PERSONAS');
+      const isPersonaBySong = isPersonas && S.includes('SONG_ID = ?');
 
       return {
         bind(...args: unknown[]) {
           return {
             all: async () => ({ results: isPersonas ? personas.slice() : data.slice() }),
-            first: async () => find(args[0] as string) ?? null,
+            first: async () =>
+              isPersonaBySong
+                ? personas.find((p) => p.song_id === (args[0] as string)) ?? null
+                : find(args[0] as string) ?? null,
             run: async () => {
               if (isPersonas) {
                 // INSERT INTO personas (id, persona_id, name, description, song_id, created_at)

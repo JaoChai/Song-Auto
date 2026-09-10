@@ -3,6 +3,7 @@ import {
   validateGenerate, kieGenerate, kiePollTask, kieCreatePersona,
   validateExtend, kieExtend, type GenerateInput, type ExtendInput,
   validateLyricsPrompt, kieGenerateLyrics, kiePollLyrics, LYRICS_PROMPT_LIMIT,
+  validatePersonaSegment,
 } from '../src/worker/kie';
 import type { Env } from '../src/worker/types';
 
@@ -364,6 +365,40 @@ describe('kieCreatePersona', () => {
   it('throws on a network error', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')));
     await expect(kieCreatePersona(env, input)).rejects.toThrow(/ECONNRESET/);
+  });
+});
+
+describe('validatePersonaSegment', () => {
+  it('รับช่วงมาตรฐาน 0 ถึง 30', () => {
+    expect(validatePersonaSegment(0, 30, 100)).toBeNull();
+  });
+
+  it('รับช่วงสั้นสุดที่อนุญาต คือ 10 วินาที', () => {
+    expect(validatePersonaSegment(12, 22, 100)).toBeNull();
+  });
+
+  it('ปฏิเสธช่วงที่สั้นกว่า 10 วินาที', () => {
+    expect(validatePersonaSegment(10, 19, 100)).toMatch(/10/);
+  });
+
+  it('ปฏิเสธช่วงที่ยาวกว่า 30 วินาที', () => {
+    expect(validatePersonaSegment(0, 31, 100)).toMatch(/30/);
+  });
+
+  it('ปฏิเสธเมื่อจุดจบมาก่อนจุดเริ่ม', () => {
+    expect(validatePersonaSegment(40, 20, 100)).toMatch(/vocalEnd|vocalStart/i);
+  });
+
+  it('ปฏิเสธจุดเริ่มติดลบ', () => {
+    expect(validatePersonaSegment(-1, 20, 100)).toMatch(/vocalStart/i);
+  });
+
+  it('ปฏิเสธเมื่อจุดจบเลยความยาวเพลง', () => {
+    expect(validatePersonaSegment(0, 30, 25)).toMatch(/duration|ความยาว/i);
+  });
+
+  it('ยอมให้ผ่านเมื่อไม่รู้ความยาวเพลง', () => {
+    expect(validatePersonaSegment(0, 30, null)).toBeNull();
   });
 });
 

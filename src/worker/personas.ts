@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { nanoid } from 'nanoid';
-import { kieCreatePersona } from './kie';
+import { kieCreatePersona, validatePersonaSegment, PERSONA_SEGMENT_MAX } from './kie';
 import type { Env, PersonaRow } from './types';
 
 const toPersonaRow = (r: Record<string, unknown>): PersonaRow => ({
@@ -18,7 +18,10 @@ const trimmed = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 /** POST /api/personas — turn one finished track into a persona kie can reuse. */
 export async function createPersona(ctx: Context<{ Bindings: Env }>) {
-  let body: { songId?: unknown; name?: unknown; description?: unknown };
+  let body: {
+    songId?: unknown; name?: unknown; description?: unknown;
+    vocalStart?: unknown; vocalEnd?: unknown; style?: unknown;
+  };
   try {
     body = (await ctx.req.json()) as typeof body;
   } catch {
@@ -42,6 +45,33 @@ export async function createPersona(ctx: Context<{ Bindings: Env }>) {
     return ctx.json({ error: 'เพลงนี้สร้างก่อนระบบเก็บรหัสแทร็ก จึงทำ persona ไม่ได้' }, 400);
   }
 
+  // kie ไม่รองรับ persona ของโมเดล V3_5
+  if (song.model === 'V3_5') {
+    return ctx.json({ error: 'เพลงโมเดล V3_5 ทำ persona ไม่ได้ (kie ไม่รองรับ)' }, 400);
+  }
+
+  // หนึ่งแทร็กทำ persona ได้ครั้งเดียว — กันตั้งแต่ที่นี่ จะได้ไม่เสีย request ให้ kie
+  const existing = await ctx.env.DB
+    .prepare('SELECT * FROM personas WHERE song_id = ?')
+    .bind(songId).first<Record<string, unknown> | null>();
+  if (existing) {
+    return ctx.json(
+      { error: `เพลงนี้ทำ persona ไปแล้วในชื่อ “${existing.name as string}”` },
+      409,
+    );
+  }
+
+  // ช่วงที่ให้ kie วิเคราะห์ — ตั้งต้น 0 ถึง 30 วินาทีตามค่าเริ่มต้นของ kie
+  const num = (v: unknown, fallback: number): number =>
+    typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  const vocalStart = num(body.vocalStart, 0);
+  const vocalEnd = num(body.vocalEnd, PERSONA_SEGMENT_MAX);
+  const duration = typeof song.duration === 'number' ? song.duration : null;
+  const segmentError = validatePersonaSegment(vocalStart, vocalEnd, duration);
+  if (segmentError) return ctx.json({ error: segmentError }, 400);
+
+  const style = trimmed(body.style);
+
   let personaId: string;
   try {
     personaId = await kieCreatePersona(ctx.env, {
@@ -49,9 +79,16 @@ export async function createPersona(ctx: Context<{ Bindings: Env }>) {
       audioId,
       name,
       description,
+      vocalStart,
+      vocalEnd,
+      ...(style ? { style } : {}),
     });
   } catch (e) {
-    return ctx.json({ error: err(e) }, 502);
+    const raw = err(e);
+    if (raw.includes('code 409')) {
+      return ctx.json({ error: 'เพลงนี้ทำ persona ไปแล้ว (ฝั่ง kie แจ้งว่าซ้ำ)' }, 409);
+    }
+    return ctx.json({ error: raw }, 502);
   }
 
   const row = {

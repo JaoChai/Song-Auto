@@ -180,11 +180,39 @@ export async function kiePollTask(env: Env, taskId: string): Promise<KiePoll> {
   return { kind: 'TRANSIENT', note: `kie poll: unexpected status '${String(status)}'` };
 }
 
+export const PERSONA_SEGMENT_MIN = 10;
+export const PERSONA_SEGMENT_MAX = 30;
+
 export interface CreatePersonaInput {
   taskId: string;
   audioId: string;
   name: string;
   description: string;
+  /** ช่วงเวลาที่ให้ kie วิเคราะห์ ต้องห่างกัน 10-30 วินาที ค่าตั้งต้นคือ 0-30 */
+  vocalStart?: number;
+  vocalEnd?: number;
+  /** แท็บแนวเพลงเสริม เช่น "Electronic Pop" */
+  style?: string;
+}
+
+export function validatePersonaSegment(
+  start: number,
+  end: number,
+  duration: number | null,
+): string | null {
+  if (!Number.isFinite(start) || start < 0) return 'vocalStart must be 0 or greater';
+  if (!Number.isFinite(end) || end <= start) return 'vocalEnd must be greater than vocalStart';
+  const span = end - start;
+  if (span < PERSONA_SEGMENT_MIN) {
+    return `ช่วงที่เลือกต้องยาวอย่างน้อย ${PERSONA_SEGMENT_MIN} วินาที`;
+  }
+  if (span > PERSONA_SEGMENT_MAX) {
+    return `ช่วงที่เลือกต้องไม่ยาวเกิน ${PERSONA_SEGMENT_MAX} วินาที`;
+  }
+  if (typeof duration === 'number' && end > duration) {
+    return `ช่วงที่เลือกเลยความยาวเพลง (${Math.floor(duration)} วินาที)`;
+  }
+  return null;
 }
 
 /**
@@ -192,12 +220,22 @@ export interface CreatePersonaInput {
  * Throws on any failure (caller decides HTTP mapping), same contract as kieGenerate.
  */
 export async function kieCreatePersona(env: Env, input: CreatePersonaInput): Promise<string> {
+  const body: Record<string, unknown> = {
+    taskId: input.taskId,
+    audioId: input.audioId,
+    name: input.name,
+    description: input.description,
+  };
+  if (typeof input.vocalStart === 'number') body.vocalStart = input.vocalStart;
+  if (typeof input.vocalEnd === 'number') body.vocalEnd = input.vocalEnd;
+  if (input.style) body.style = input.style;
+
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}/api/v1/generate/generate-persona`, {
       method: 'POST',
       headers: authHeaders(env),
-      body: JSON.stringify(input),
+      body: JSON.stringify(body),
     });
   } catch (err) {
     throw new Error(`kie persona network error: ${(err as Error).message}`);
