@@ -295,6 +295,48 @@ textarea.input {
 .tune-slider-input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--grape); outline-offset: 2px; }
 .tune-slider-input:focus-visible::-moz-range-thumb { outline: 2px solid var(--grape); outline-offset: 2px; }
 
+/* ตัวเลือกรุ่นโมเดล — การ์ด radio ทรงเดียวกับการ์ดสไลเดอร์ */
+.model-pick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.model-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.model-card:hover { background: var(--surface-hover); }
+.model-card[data-on='true'] {
+  background: var(--grape-soft);
+  border-color: var(--grape);
+}
+.model-card:has(input:focus-visible) {
+  outline: 2px solid var(--grape);
+  outline-offset: 2px;
+}
+.model-card-name {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.model-card[data-on='true'] .model-card-name { color: var(--grape-text); }
+.model-card-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+@media (max-width: 420px) {
+  .model-pick { grid-template-columns: minmax(0, 1fr); }
+}
+
+
 /* ปุ่มสร้างอยู่ก้นฟอร์มเสมอ */
 .form-footer {
   margin-top: auto;
