@@ -22,7 +22,7 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
     const body: GenerateBody = {
       prompt: song.prompt,
       instrumental: song.instrumental === 1,
-      model: 'V5',
+      model: song.model,
       ...(song.style ? { style: song.style } : {}),
       ...(song.title ? { title: song.title } : {}),
     };
