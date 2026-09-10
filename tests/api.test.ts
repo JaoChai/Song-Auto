@@ -248,8 +248,8 @@ describe('API routes', () => {
     expect(store.get('s1.wav')).toHaveLength(3);
   });
 
-  it('GET /api/tasks/:id: WAV kickoff fails (kie down) → falls back to mp3 immediately, still SUCCESS', async () => {
-    const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
+  it('GET /api/tasks/:id: WAV kickoff hits a transient error (network) → stays PENDING for a retry, no mp3 fallback', async () => {
+    const { env, data } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
     const cookie = await cookieFor('pw');
     const pollStub = stubKiePoll({
       taskId: 'task-1', status: 'SUCCESS',
@@ -260,6 +260,30 @@ describe('API routes', () => {
       const u = String(url);
       if (u.includes('/api/v1/generate/record-info')) return pollStub() as unknown as Response;
       if (u.includes('/api/v1/wav/generate')) throw new Error('kie unreachable');
+      return dl() as unknown as Response;
+    }));
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'PENDING' });
+    // ไม่เขียนอะไรลง row เลย รอบ poll ถัดไปจะเรียก kieWavGenerate ซ้ำเอง (ไม่ใช่ mp3 fallback)
+    expect(data[0].status).toBe('PENDING');
+    expect(data[0].wav_task_id).toBeNull();
+  });
+
+  it('GET /api/tasks/:id: WAV kickoff hits a permanent error (402 insufficient credits) → falls back to mp3 immediately, still SUCCESS', async () => {
+    const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
+    const cookie = await cookieFor('pw');
+    const pollStub = stubKiePoll({
+      taskId: 'task-1', status: 'SUCCESS',
+      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'x' }] },
+    });
+    const dl = stubMp3Download();
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes('/api/v1/generate/record-info')) return pollStub() as unknown as Response;
+      if (u.includes('/api/v1/wav/generate')) {
+        return { ok: true, status: 200, json: async () => ({ code: 402, msg: 'Insufficient Credits' }) } as unknown as Response;
+      }
       return dl() as unknown as Response;
     }));
     const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);

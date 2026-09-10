@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { nanoid } from 'nanoid';
 import {
   kieExtend, kieGenerate, kiePollTask, kieWavGenerate, kieWavPoll, validateExtend, validateGenerate,
+  WavGenerateError,
   type ExtendInput, type GenerateInput, type TrackInfo,
 } from './kie';
 import type { Env, SongRow } from './types';
@@ -248,11 +249,16 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
     }
   }
 
-  // แปลง WAV เริ่มไม่ได้ (kie ล่ม/เน็ตหลุด) — ไม่ต้องรอ ใช้ mp3 ไปเลยดีกว่าเพลงค้าง PENDING ตลอดกาล
+  // แปลง WAV เริ่มไม่ได้: error ชั่วคราว (429/455/500/เน็ตหลุด) ให้ลองใหม่รอบ poll ถัดไปแทนที่จะทิ้ง WAV ทันที —
+  // error ถาวร (เครดิตไม่พอ/พารามิเตอร์ผิด/ฯลฯ) ถึงค่อย fallback เป็น mp3 ไม่ให้เพลงค้าง PENDING ตลอดกาล
   let wavTaskId: string;
   try {
     wavTaskId = await kieWavGenerate(ctx.env, { taskId: row.task_id as string, audioId: sunoId });
-  } catch {
+  } catch (err) {
+    console.error(`kie wav generate failed for song ${id}:`, err);
+    if (err instanceof WavGenerateError && err.retryable) {
+      return c(ctx).json({ status: 'PENDING' });
+    }
     return finishWithMp3(ctx, id, track, imageKey);
   }
 

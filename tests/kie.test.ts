@@ -3,7 +3,7 @@ import {
   validateGenerate, kieGenerate, kiePollTask, kieCreatePersona,
   validateExtend, kieExtend, type GenerateInput, type ExtendInput,
   validateLyricsPrompt, kieGenerateLyrics, kiePollLyrics, LYRICS_PROMPT_LIMIT,
-  validatePersonaSegment, kieWavGenerate, kieWavPoll,
+  validatePersonaSegment, kieWavGenerate, kieWavPoll, WavGenerateError,
 } from '../src/worker/kie';
 import type { Env } from '../src/worker/types';
 
@@ -764,12 +764,32 @@ describe('kieWavGenerate', () => {
     expect(body.callBackUrl).toBeTruthy();
   });
 
-  it('throws on envelope code !== 200', async () => {
+  it('throws a non-retryable error on a permanent envelope code (409)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true, status: 200,
       json: async () => ({ code: 409, msg: 'WAV record already exists', data: null }),
     }));
     await expect(kieWavGenerate(env, { taskId: 't', audioId: 'a' })).rejects.toThrow(/already exists/);
+    try {
+      await kieWavGenerate(env, { taskId: 't', audioId: 'a' });
+    } catch (err) {
+      expect(err).toBeInstanceOf(WavGenerateError);
+      expect((err as WavGenerateError).retryable).toBe(false);
+    }
+  });
+
+  it('throws a retryable error on a transient envelope code (429)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 429, msg: 'Rate Limited', data: null }),
+    }));
+    try {
+      await kieWavGenerate(env, { taskId: 't', audioId: 'a' });
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(WavGenerateError);
+      expect((err as WavGenerateError).retryable).toBe(true);
+    }
   });
 
   it('throws when data.taskId is missing from a 200 response', async () => {

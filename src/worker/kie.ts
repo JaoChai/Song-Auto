@@ -217,6 +217,16 @@ export interface WavGenerateInput {
   audioId: string;
 }
 
+// รหัสตาม docs ของ /wav/generate ที่ "ลองใหม่ได้" (ชั่วคราว) — ที่เหลือ (402/404/409/422/400/401) ลองใหม่ไม่ช่วย
+const WAV_GENERATE_RETRYABLE_CODES = [429, 455, 500];
+
+export class WavGenerateError extends Error {
+  constructor(message: string, public readonly retryable: boolean) {
+    super(message);
+    this.name = 'WavGenerateError';
+  }
+}
+
 /** POST /api/v1/wav/generate — เริ่มงานแปลง WAV คืน taskId ของงานแปลง (คนละอันกับ taskId ที่ส่งเข้าไป) ไว้ poll ต่อ */
 export async function kieWavGenerate(env: Env, input: WavGenerateInput): Promise<string> {
   let res: Response;
@@ -228,20 +238,21 @@ export async function kieWavGenerate(env: Env, input: WavGenerateInput): Promise
       body: JSON.stringify({ taskId: input.taskId, audioId: input.audioId, callBackUrl: CALLBACK_URL }),
     });
   } catch (err) {
-    throw new Error(`kie wav generate network error: ${(err as Error).message}`);
+    throw new WavGenerateError(`kie wav generate network error: ${(err as Error).message}`, true);
   }
 
   let envelope: { code: number; msg: string; data?: { taskId?: string } };
   try {
     envelope = await res.json();
   } catch {
-    throw new Error(`kie wav generate: invalid JSON response (HTTP ${res.status})`);
+    throw new WavGenerateError(`kie wav generate: invalid JSON response (HTTP ${res.status})`, true);
   }
   if (envelope.code !== 200) {
-    throw new Error(`kie wav generate failed (code ${envelope.code}): ${envelope.msg}`);
+    const retryable = (WAV_GENERATE_RETRYABLE_CODES as readonly number[]).includes(envelope.code);
+    throw new WavGenerateError(`kie wav generate failed (code ${envelope.code}): ${envelope.msg}`, retryable);
   }
   const taskId = envelope.data?.taskId;
-  if (!taskId) throw new Error('kie wav generate: response missing data.taskId');
+  if (!taskId) throw new WavGenerateError('kie wav generate: response missing data.taskId', true);
   return taskId;
 }
 
