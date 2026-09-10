@@ -11,6 +11,10 @@ const PROMPT_LIMIT_CUSTOM = 5000;
 const STYLE_LIMIT = 1000;
 const TITLE_LIMIT = 80;
 
+// kie รับ duration เป็นวินาที และมีผลเฉพาะ custom mode บนตระกูล V6
+const DURATION_MIN = 10;
+const DURATION_MAX = 360;
+
 const VOCAL_GENDERS = ['m', 'f'] as const;
 
 export interface GenerateInput {
@@ -26,6 +30,7 @@ export interface GenerateInput {
   styleWeight?: number;
   weirdnessConstraint?: number;
   audioWeight?: number;
+  duration?: number;
 }
 
 const KIE_FAILED_STATUSES = [
@@ -76,6 +81,12 @@ export function validateGenerate(input: GenerateInput): string | null {
   if (input.vocalGender && !(VOCAL_GENDERS as readonly string[]).includes(input.vocalGender)) {
     return `unsupported vocalGender '${input.vocalGender}' (expected one of ${VOCAL_GENDERS.join(', ')})`;
   }
+  if (input.duration !== undefined) {
+    if (!custom) return 'duration requires custom mode (style or title)';
+    if (!Number.isFinite(input.duration) || input.duration < DURATION_MIN || input.duration > DURATION_MAX) {
+      return `duration must be between ${DURATION_MIN} and ${DURATION_MAX} seconds`;
+    }
+  }
   return (
     checkUnitRange(input.styleWeight, 'styleWeight') ??
     checkUnitRange(input.weirdnessConstraint, 'weirdnessConstraint') ??
@@ -105,6 +116,7 @@ export async function kieGenerate(env: Env, input: GenerateInput): Promise<strin
   if (custom) {
     if (input.style) body.style = input.style;
     if (input.title) body.title = input.title;
+    if (typeof input.duration === 'number') body.duration = input.duration;
   }
   if (input.negativeTags) body.negativeTags = input.negativeTags;
   if (input.personaId && input.personaModel) {
