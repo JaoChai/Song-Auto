@@ -22,6 +22,8 @@ const toSongRow = (r: Record<string, unknown>): SongRow => ({
   createdAt: r.created_at as string,
   sunoId: (r.suno_id as string | null) ?? null,
   variant: Number(r.variant ?? 1),
+  parentSongId: (r.parent_song_id as string | null) ?? null,
+  continueAt: typeof r.continue_at === 'number' ? r.continue_at : null,
 });
 
 const err = (e: unknown): string => (e instanceof Error ? e.message : String(e));

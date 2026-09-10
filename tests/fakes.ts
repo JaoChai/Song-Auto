@@ -52,13 +52,28 @@ const makeDb = (rows: Row[] = []) => {
                 return { success: true };
               }
               if (isInsert) {
-                // (id, task_id, title, prompt, style, tags, model, instrumental, created_at, variant)
-                const [id, task_id, title, prompt, style, tags, model, instrumental, created_at, variant] = args as never[];
+                // อ่านชื่อคอลัมน์กับตำแหน่ง ? จาก SQL แทนการนับ argument
+                // — เพิ่มคอลัมน์ใหม่แล้วเทสต์เดิมต้องไม่พัง
+                const cols = (sql.match(/INSERT INTO\s+\w+\s*\(([^)]*)\)/i)?.[1] ?? '')
+                  .split(',').map((c) => c.trim());
+                const vals = (sql.match(/VALUES\s*\(([^)]*)\)/i)?.[1] ?? '')
+                  .split(',').map((v) => v.trim());
+                const parsed: Record<string, unknown> = {};
+                let argIndex = 0;
+                cols.forEach((col, i) => {
+                  const v = vals[i];
+                  if (v === '?') parsed[col] = args[argIndex++];
+                  else if (v === undefined || v.toUpperCase() === 'NULL') parsed[col] = null;
+                  else parsed[col] = v.replace(/^'|'$/g, '');
+                });
                 data.push({
-                  id, task_id, title, prompt, style, tags, model,
-                  instrumental: Number(instrumental), status: 'PENDING',
-                  error: null, r2_key: null, image_key: null, duration: null,
-                  created_at, variant: Number(variant), suno_id: null,
+                  image_key: null,
+                  suno_id: null,
+                  parent_song_id: null,
+                  continue_at: null,
+                  ...parsed,
+                  instrumental: Number(parsed.instrumental ?? 0),
+                  variant: Number(parsed.variant ?? 1),
                 } as unknown as Row);
                 return { success: true };
               }

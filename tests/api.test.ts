@@ -446,3 +446,37 @@ describe('API routes', () => {
     expect(mock).not.toHaveBeenCalled();
   });
 });
+
+describe('GET /api/songs — ฟิลด์สายพันธุ์', () => {
+  it('ส่ง parentSongId กับ continueAt ออกมาด้วย', async () => {
+    const { env } = makeEnv([
+      {
+        id: 's2', task_id: 'task-2', title: 'ต่อจากสายฝน', prompt: '', style: '', tags: '',
+        model: 'V5', instrumental: 0, status: 'SUCCESS', error: null, r2_key: 's2.mp3',
+        image_key: null, duration: 60, created_at: '2026-09-10T00:00:00.000Z', variant: 1,
+        suno_id: 'a2', parent_song_id: 's1', continue_at: 42.5,
+      } as never,
+    ]);
+    const cookie = await cookieFor('pw');
+    const res = await app.request('/api/songs', { headers: { cookie } }, env);
+    const out = await res.json() as { songs: Array<Record<string, unknown>> };
+    expect(out.songs[0].parentSongId).toBe('s1');
+    expect(out.songs[0].continueAt).toBe(42.5);
+  });
+
+  it('เพลงที่ไม่ได้ต่อจากใคร ได้ null ทั้งสองฟิลด์', async () => {
+    const { env } = makeEnv([
+      {
+        id: 's1', task_id: 'task-1', title: 'สายฝน', prompt: '', style: '', tags: '',
+        model: 'V5', instrumental: 0, status: 'SUCCESS', error: null, r2_key: 's1.mp3',
+        image_key: null, duration: 60, created_at: '2026-09-09T00:00:00.000Z', variant: 1,
+        suno_id: 'a1',
+      } as never,
+    ]);
+    const cookie = await cookieFor('pw');
+    const res = await app.request('/api/songs', { headers: { cookie } }, env);
+    const out = await res.json() as { songs: Array<Record<string, unknown>> };
+    expect(out.songs[0].parentSongId).toBeNull();
+    expect(out.songs[0].continueAt).toBeNull();
+  });
+});
