@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { api, type GenerateBody, type Persona, type Song } from '../lib/api';
+import { api, fmtDuration, type GenerateBody, type Persona, type Song } from '../lib/api';
 import { loadDraft, saveDraft, type Draft } from '../lib/draft';
 import { SpinnerIcon } from './icons';
 import { LyricsAssist } from './LyricsAssist';
+import { ModelPicker } from './ModelPicker';
 import { TuningSlider } from './TuningSlider';
 
 const LYRICS_MAX = 5000;
@@ -23,7 +24,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
 
   const {
     lyrics, style, title, instrumental, negativeTags, personaId, personaModel,
-    vocalGender, styleWeight, weirdnessConstraint, audioWeight,
+    vocalGender, styleWeight, weirdnessConstraint, audioWeight, model, duration,
   } = draft;
 
   // the draft is the only thing worth persisting — everything else is transient
@@ -64,7 +65,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         style,
         title,
         instrumental,
-        model: 'V5',
+        model,
         ...(negativeTags ? { negativeTags } : {}),
         ...(personaId && personaModel ? { personaId, personaModel } : {}),
         ...(!instrumental && vocalGender ? { vocalGender } : {}),
@@ -73,6 +74,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
           ? { weirdnessConstraint: numOrUndefined(weirdnessConstraint) }
           : {}),
         ...(numOrUndefined(audioWeight) !== undefined ? { audioWeight: numOrUndefined(audioWeight) } : {}),
+        ...(numOrUndefined(duration) !== undefined ? { duration: numOrUndefined(duration) } : {}),
       };
       const created = await api<{ songs: Song[] }>('/api/generate', {
         method: 'POST',
@@ -89,6 +91,12 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
 
   return (
     <form onSubmit={submit} className="flex min-h-full flex-col gap-6 p-6">
+      {/* Model version */}
+      <div>
+        <label className="field-label">รุ่นของโมเดล</label>
+        <ModelPicker value={model} onChange={(v) => set('model', v)} />
+      </div>
+
       {/* Title */}
       <div>
         <div className="mb-2 flex items-baseline justify-between">
@@ -131,6 +139,16 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         <label className="field-label">ปรับแต่งสไตล์ (ไม่บังคับ)</label>
         <div className="flex flex-col gap-3">
           <TuningSlider
+            label="ความยาวเพลง"
+            hint="ความยาวโดยประมาณของเพลงที่ต้องการ เป็นวินาที — ไม่ตั้งค่าแล้วปล่อยให้ kie ตัดสินใจเอง"
+            value={duration}
+            onChange={(v) => set('duration', v)}
+            min={10}
+            max={360}
+            step={5}
+            format={fmtDuration}
+          />
+          <TuningSlider
             label="ยึดสไตล์"
             hint="ความเข้มของการยึดตามสไตล์ที่ระบุ — ยิ่งสูง เพลงยิ่งใกล้เคียงสไตล์ที่ตั้งไว้"
             value={styleWeight}
@@ -141,12 +159,6 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
             hint="ระดับความทดลอง/สร้างสรรค์ที่เบี่ยงจากแนวมาตรฐาน — ยิ่งสูง ยิ่งแหวกแนว"
             value={weirdnessConstraint}
             onChange={(v) => set('weirdnessConstraint', v)}
-          />
-          <TuningSlider
-            label="น้ำหนักเสียงอ้างอิง"
-            hint="สัดส่วนอิทธิพลของ persona เสียงอ้างอิง เทียบกับปัจจัยอื่น"
-            value={audioWeight}
-            onChange={(v) => set('audioWeight', v)}
           />
         </div>
       </div>
@@ -273,28 +285,39 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
           </select>
 
           {personaId && (
-            <div className="mt-2 flex gap-4 text-sm" style={{ color: 'var(--ink-2)' }}>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="personaModel"
-                  className="accent-[#6d28d9]"
-                  checked={personaModel === 'style_persona'}
-                  onChange={() => set('personaModel', 'style_persona')}
+            <>
+              <div className="mt-2 flex gap-4 text-sm" style={{ color: 'var(--ink-2)' }}>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="personaModel"
+                    className="accent-[#6d28d9]"
+                    checked={personaModel === 'style_persona'}
+                    onChange={() => set('personaModel', 'style_persona')}
+                  />
+                  เอาแนวดนตรี
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="personaModel"
+                    className="accent-[#6d28d9]"
+                    checked={personaModel === 'voice_persona'}
+                    onChange={() => set('personaModel', 'voice_persona')}
+                  />
+                  เอาเสียงร้อง
+                </label>
+              </div>
+
+              <div className="mt-3">
+                <TuningSlider
+                  label="น้ำหนักเสียงอ้างอิง"
+                  hint="สัดส่วนอิทธิพลของ persona เสียงอ้างอิง เทียบกับปัจจัยอื่น"
+                  value={audioWeight}
+                  onChange={(v) => set('audioWeight', v)}
                 />
-                เอาแนวดนตรี
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="personaModel"
-                  className="accent-[#6d28d9]"
-                  checked={personaModel === 'voice_persona'}
-                  onChange={() => set('personaModel', 'voice_persona')}
-                />
-                เอาเสียงร้อง
-              </label>
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
