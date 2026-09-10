@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { nanoid } from 'nanoid';
-import { kieGenerate, kiePollTask, validateGenerate, type GenerateInput } from './kie';
+import { kieExtend, kieGenerate, kiePollTask, validateExtend, validateGenerate, type ExtendInput, type GenerateInput } from './kie';
 import type { Env, SongRow } from './types';
 
 const c = (ctx: Context<{ Bindings: Env }>) => ctx;
@@ -29,6 +29,21 @@ const toSongRow = (r: Record<string, unknown>): SongRow => ({
 const err = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 const VARIANTS = [1, 2] as const;
+
+/** เขียนแถว PENDING ที่เตรียมไว้แล้วลง D1 แบบ batch — generate และ extend ใช้ร่วมกัน */
+async function insertSongRows(ctx: Context<{ Bindings: Env }>, rows: Array<Record<string, unknown>>) {
+  await ctx.env.DB.batch(
+    rows.map((r) =>
+      ctx.env.DB.prepare(
+        `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at, variant, parent_song_id, continue_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?, ?, ?)`,
+      ).bind(
+        r.id, r.task_id, r.title, r.prompt, r.style, r.tags, r.model, r.instrumental,
+        r.created_at, r.variant, r.parent_song_id ?? null, r.continue_at ?? null,
+      ),
+    ),
+  );
+}
 
 /** POST /api/generate — one kie job, two PENDING rows (Suno returns two tracks per task). */
 export async function createSong(ctx: Context<{ Bindings: Env }>) {
@@ -69,14 +84,7 @@ export async function createSong(ctx: Context<{ Bindings: Env }>) {
   }));
 
   try {
-    await ctx.env.DB.batch(
-      rows.map((r) =>
-        ctx.env.DB.prepare(
-          `INSERT INTO songs (id, task_id, title, prompt, style, tags, model, instrumental, status, error, r2_key, duration, created_at, variant)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?)`,
-        ).bind(r.id, r.task_id, r.title, r.prompt, r.style, r.tags, r.model, r.instrumental, r.created_at, r.variant),
-      ),
-    );
+    await insertSongRows(ctx, rows);
   } catch (e) {
     return c(ctx).json({ error: `failed to insert song rows: ${err(e)}` }, 500);
   }
@@ -189,4 +197,101 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
 export async function listSongs(ctx: Context<{ Bindings: Env }>) {
   const { results } = await ctx.env.DB.prepare('SELECT * FROM songs ORDER BY created_at DESC, id DESC').bind().all<Record<string, unknown>>();
   return c(ctx).json({ songs: results.map(toSongRow) });
+}
+
+type ExtendBody = Partial<
+  Pick<ExtendInput, 'defaultParamFlag' | 'continueAt' | 'prompt' | 'style' | 'title' | 'negativeTags' | 'personaId' | 'personaModel'>
+>;
+
+/**
+ * POST /api/songs/:id/extend — ต่อเพลงจากแถวนี้ แล้วเขียนแถว PENDING ใหม่สองแถว
+ * ที่ชี้กลับมาหาเพลงต้นทาง โมเดลกับ audioId มาจากแถวต้นทางเสมอ ผู้เรียกกำหนดไม่ได้
+ */
+export async function extendSong(ctx: Context<{ Bindings: Env }>) {
+  const parentId = ctx.req.param('id');
+  const parent = await ctx.env.DB.prepare('SELECT * FROM songs WHERE id = ?')
+    .bind(parentId).first<Record<string, unknown> | null>();
+  if (!parent) return c(ctx).json({ error: `song not found: ${parentId}` }, 404);
+
+  if (parent.status !== 'SUCCESS') {
+    return c(ctx).json({ error: 'ต่อเพลงได้เฉพาะเพลงที่สร้างเสร็จแล้ว' }, 400);
+  }
+  const audioId = (parent.suno_id as string | null) ?? '';
+  if (!audioId) {
+    return c(ctx).json({ error: 'เพลงนี้สร้างก่อนระบบเก็บรหัสแทร็ก จึงต่อเพลงไม่ได้' }, 400);
+  }
+
+  let body: ExtendBody;
+  try {
+    body = (await ctx.req.json()) as ExtendBody;
+  } catch {
+    return c(ctx).json({ error: 'invalid JSON body' }, 400);
+  }
+
+  const custom = Boolean(body.defaultParamFlag);
+  const model = parent.model as string;
+  const instrumental = Number(parent.instrumental ?? 0);
+  // โหมดปรับเองใช้ค่าจากผู้เรียก โหมดใช้ค่าเดิมยืมจากแถวต้นทาง
+  const pick = (fromBody: string | undefined, fromParent: unknown) =>
+    custom ? (fromBody ?? '') : ((fromParent as string) ?? '');
+
+  const input: ExtendInput = {
+    audioId,
+    model,
+    defaultParamFlag: custom,
+    sourceDuration: typeof parent.duration === 'number' ? parent.duration : null,
+    instrumental: instrumental === 1,
+    ...(custom
+      ? {
+          continueAt: body.continueAt,
+          prompt: body.prompt,
+          style: body.style,
+          title: body.title,
+        }
+      : {}),
+    ...(body.negativeTags ? { negativeTags: body.negativeTags } : {}),
+    ...(body.personaId && body.personaModel
+      ? { personaId: body.personaId, personaModel: body.personaModel }
+      : {}),
+  };
+
+  const validation = validateExtend(input);
+  if (validation) return c(ctx).json({ error: validation }, 400);
+
+  let taskId: string;
+  try {
+    taskId = await kieExtend(ctx.env, input);
+  } catch (e) {
+    return c(ctx).json({ error: err(e) }, 502);
+  }
+
+  const createdAt = new Date().toISOString();
+  const rows = VARIANTS.map((variant) => ({
+    id: nanoid(),
+    task_id: taskId,
+    title: pick(body.title, parent.title),
+    prompt: pick(body.prompt, parent.prompt),
+    style: pick(body.style, parent.style),
+    tags: '',
+    model,
+    instrumental,
+    status: 'PENDING' as const,
+    error: null,
+    r2_key: null,
+    image_key: null,
+    duration: null,
+    created_at: createdAt,
+    suno_id: null,
+    variant,
+    parent_song_id: parentId,
+    continue_at: custom ? (body.continueAt ?? null) : null,
+  }));
+
+  try {
+    await insertSongRows(ctx, rows);
+  } catch (e) {
+    return c(ctx).json({ error: `failed to insert song rows: ${err(e)}` }, 500);
+  }
+
+  return c(ctx).json({ songs: rows.map(toSongRow) }, 201);
 }

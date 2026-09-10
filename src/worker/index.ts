@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { issueSession } from './auth';
 import { authMiddleware } from './auth';
 import type { Env } from './types';
-import { createSong, getTask, listSongs } from './routes';
+import { createSong, extendSong, getTask, listSongs } from './routes';
 import { getAudio } from './audio';
 import { createPersona, listPersonas } from './personas';
 
@@ -33,6 +33,7 @@ app.use('/audio/*', authMiddleware);
 app.post('/api/generate', createSong);
 app.get('/api/tasks/:id', getTask);
 app.get('/api/songs', listSongs);
+app.post('/api/songs/:id/extend', extendSong);
 app.post('/api/personas', createPersona);
 app.get('/api/personas', listPersonas);
 // audio route also sits behind authMiddleware (path starts with /audio, not exempted)
