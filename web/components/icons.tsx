@@ -67,3 +67,11 @@ export const VolumeIcon = ({ className, style }: IconProps) => (
     <path d="M11 5 6 9H3v6h3l5 4zM16 9a4 4 0 0 1 0 6" />
   </svg>
 );
+
+export const InfoIcon = ({ className, style }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className} style={style} {...stroke} aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.5" />
+    <circle cx="12" cy="7.75" r="0.75" fill="currentColor" stroke="none" />
+  </svg>
+);

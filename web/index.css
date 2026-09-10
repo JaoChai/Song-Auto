@@ -204,6 +204,97 @@ textarea.input {
   font-weight: 500;
 }
 
+/* สไลเดอร์ปรับแต่งสไตล์ — การ์ดบอกตำแหน่งด้วยขีด thumb ทรงแคปซูลสีชมพูเมื่อผู้ใช้ตั้งค่าเอง
+   (สีเทาตราบใดที่ยังไม่แตะ — ค่านั้นจึงยังไม่ถูกส่งไป kie ให้ใช้ค่าเริ่มต้นของมันเอง) */
+.tune-slider {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.tune-slider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.tune-slider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.tune-slider-info {
+  display: inline-flex;
+  color: var(--ink-3);
+  cursor: help;
+}
+.tune-slider-pct {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.tune-slider[data-set='true'] .tune-slider-pct { color: var(--pink); }
+
+.tune-slider-track-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+.tune-slider-ticks {
+  position: absolute;
+  inset-inline: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+.tune-slider-ticks span {
+  width: 1px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--line-strong);
+}
+.tune-slider-input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.tune-slider-input::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+.tune-slider-input::-moz-range-track { height: 4px; background: transparent; border: none; }
+.tune-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 7px;
+  height: 22px;
+  margin-top: -9px;
+  border-radius: 999px;
+  background: var(--ink-3);
+  box-shadow: 0 1px 3px rgba(23, 18, 43, 0.25);
+}
+.tune-slider-input::-moz-range-thumb {
+  width: 7px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--ink-3);
+  box-shadow: 0 1px 3px rgba(23, 18, 43, 0.25);
+}
+.tune-slider[data-set='true'] .tune-slider-input::-webkit-slider-thumb { background: var(--pink); }
+.tune-slider[data-set='true'] .tune-slider-input::-moz-range-thumb { background: var(--pink); }
+.tune-slider-input:focus-visible { outline: none; }
+.tune-slider-input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--grape); outline-offset: 2px; }
+.tune-slider-input:focus-visible::-moz-range-thumb { outline: 2px solid var(--grape); outline-offset: 2px; }
+
 /* ปุ่มสร้างอยู่ก้นฟอร์มเสมอ */
 .form-footer {
   margin-top: auto;

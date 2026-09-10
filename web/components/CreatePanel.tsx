@@ -3,6 +3,7 @@ import { api, type GenerateBody, type Persona, type Song } from '../lib/api';
 import { loadDraft, saveDraft, type Draft } from '../lib/draft';
 import { SpinnerIcon } from './icons';
 import { LyricsAssist } from './LyricsAssist';
+import { TuningSlider } from './TuningSlider';
 
 const LYRICS_MAX = 5000;
 const STYLE_MAX = 1000;
@@ -128,55 +129,25 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
       {/* Style tuning */}
       <div>
         <label className="field-label">ปรับแต่งสไตล์ (ไม่บังคับ)</label>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label htmlFor="styleWeight" className="mb-1 block text-xs" style={{ color: 'var(--ink-3)' }}>
-              ยึดสไตล์
-            </label>
-            <input
-              id="styleWeight"
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              className="input"
-              value={styleWeight}
-              onChange={(e) => set('styleWeight', e.target.value)}
-              placeholder="อัตโนมัติ"
-            />
-          </div>
-          <div>
-            <label htmlFor="weirdnessConstraint" className="mb-1 block text-xs" style={{ color: 'var(--ink-3)' }}>
-              ความแปลกใหม่
-            </label>
-            <input
-              id="weirdnessConstraint"
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              className="input"
-              value={weirdnessConstraint}
-              onChange={(e) => set('weirdnessConstraint', e.target.value)}
-              placeholder="อัตโนมัติ"
-            />
-          </div>
-          <div>
-            <label htmlFor="audioWeight" className="mb-1 block text-xs" style={{ color: 'var(--ink-3)' }}>
-              น้ำหนักเสียงอ้างอิง
-            </label>
-            <input
-              id="audioWeight"
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              className="input"
-              value={audioWeight}
-              onChange={(e) => set('audioWeight', e.target.value)}
-              placeholder="อัตโนมัติ"
-            />
-          </div>
+        <div className="flex flex-col gap-3">
+          <TuningSlider
+            label="ยึดสไตล์"
+            hint="ความเข้มของการยึดตามสไตล์ที่ระบุ — ยิ่งสูง เพลงยิ่งใกล้เคียงสไตล์ที่ตั้งไว้"
+            value={styleWeight}
+            onChange={(v) => set('styleWeight', v)}
+          />
+          <TuningSlider
+            label="ความแปลกใหม่"
+            hint="ระดับความทดลอง/สร้างสรรค์ที่เบี่ยงจากแนวมาตรฐาน — ยิ่งสูง ยิ่งแหวกแนว"
+            value={weirdnessConstraint}
+            onChange={(v) => set('weirdnessConstraint', v)}
+          />
+          <TuningSlider
+            label="น้ำหนักเสียงอ้างอิง"
+            hint="สัดส่วนอิทธิพลของ persona เสียงอ้างอิง เทียบกับปัจจัยอื่น"
+            value={audioWeight}
+            onChange={(v) => set('audioWeight', v)}
+          />
         </div>
       </div>
 
