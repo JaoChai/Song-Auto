@@ -77,6 +77,45 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
 
   return (
     <form onSubmit={submit} className="flex min-h-full flex-col gap-6 p-6">
+      {/* Title */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <label htmlFor="title" className="field-label" style={{ marginBottom: 0 }}>Title</label>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
+            {title.length} / {TITLE_MAX}
+          </span>
+        </div>
+        <input
+          id="title"
+          className="input"
+          value={title}
+          onChange={(e) => set('title', e.target.value)}
+          maxLength={TITLE_MAX}
+          placeholder="ชื่อเพลง"
+        />
+      </div>
+
+      {/* Style */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <label htmlFor="style" className="field-label" style={{ marginBottom: 0 }}>Style of music</label>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
+            {style.length} / {STYLE_MAX}
+          </span>
+        </div>
+        <textarea
+          id="style"
+          className="input"
+          value={style}
+          onChange={(e) => set('style', e.target.value)}
+          rows={3}
+          maxLength={STYLE_MAX}
+          placeholder="dream pop, ethereal, lush reverb"
+        />
+      </div>
+
+      <div className="h-px shrink-0" style={{ background: 'var(--line)' }} />
+
       {/* Instrumental */}
       <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--ink-2)' }}>
         <input
@@ -128,45 +167,6 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
           )}
         </div>
       )}
-
-      <div className="h-px shrink-0" style={{ background: 'var(--line)' }} />
-
-      {/* Style */}
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <label htmlFor="style" className="field-label" style={{ marginBottom: 0 }}>Style of music</label>
-          <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
-            {style.length} / {STYLE_MAX}
-          </span>
-        </div>
-        <textarea
-          id="style"
-          className="input"
-          value={style}
-          onChange={(e) => set('style', e.target.value)}
-          rows={3}
-          maxLength={STYLE_MAX}
-          placeholder="dream pop, ethereal, lush reverb"
-        />
-      </div>
-
-      {/* Title */}
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <label htmlFor="title" className="field-label" style={{ marginBottom: 0 }}>Title</label>
-          <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
-            {title.length} / {TITLE_MAX}
-          </span>
-        </div>
-        <input
-          id="title"
-          className="input"
-          value={title}
-          onChange={(e) => set('title', e.target.value)}
-          maxLength={TITLE_MAX}
-          placeholder="ชื่อเพลง"
-        />
-      </div>
 
       {/* Persona — ซ่อนทั้งก้อนถ้ายังไม่มีสักอัน ฟอร์มจะได้ไม่รกโดยไม่จำเป็น */}
       {personas.length > 0 && (
