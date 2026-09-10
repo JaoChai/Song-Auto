@@ -1,3 +1,5 @@
+import { MODELS, type KieModel } from './api';
+
 export type PersonaModel = '' | 'style_persona' | 'voice_persona';
 export type VocalGender = '' | 'm' | 'f';
 
@@ -15,6 +17,9 @@ export interface Draft {
   styleWeight: string;
   weirdnessConstraint: string;
   audioWeight: string;
+  model: KieModel;
+  /** วินาที เก็บเป็นสตริงเหมือน slider — ค่าว่างแปลว่าไม่ส่งไป kie */
+  duration: string;
 }
 
 const KEY = 'song-auto:draft';
@@ -31,6 +36,8 @@ export const EMPTY_DRAFT: Draft = {
   styleWeight: '',
   weirdnessConstraint: '',
   audioWeight: '',
+  model: 'V6',
+  duration: '',
 };
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
@@ -40,6 +47,10 @@ const personaModel = (value: unknown): PersonaModel =>
 
 const vocalGender = (value: unknown): VocalGender =>
   value === 'm' || value === 'f' ? value : '';
+
+// draft ที่บันทึกไว้ก่อนย้ายมา V6 อาจถือ 'V5' ที่ kie ไม่รับแล้ว — ตกกลับเป็นค่าตั้งต้น
+const kieModel = (value: unknown): KieModel =>
+  (MODELS as readonly string[]).includes(value as string) ? (value as KieModel) : 'V6';
 
 /** อ่าน draft ที่เก็บไว้ ทุกความล้มเหลว (ไม่มี storage / JSON พัง / ชนิดผิด) คืน EMPTY_DRAFT */
 export function loadDraft(): Draft {
@@ -61,6 +72,8 @@ export function loadDraft(): Draft {
       styleWeight: str(d.styleWeight),
       weirdnessConstraint: str(d.weirdnessConstraint),
       audioWeight: str(d.audioWeight),
+      model: kieModel(d.model),
+      duration: str(d.duration),
     };
   } catch {
     return EMPTY_DRAFT;

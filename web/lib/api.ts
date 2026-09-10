@@ -71,7 +71,8 @@ export const fmtDuration = (sec: number | null): string => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-export const MODELS = ['V3_5', 'V4', 'V4_5', 'V4_5PLUS', 'V4_5ALL', 'V5'] as const;
+export const MODELS = ['V6', 'V6_WILD', 'V6_MINI'] as const;
+export type KieModel = (typeof MODELS)[number];
 
 export interface GenerateBody {
   prompt?: string;
@@ -86,6 +87,7 @@ export interface GenerateBody {
   styleWeight?: number;
   weirdnessConstraint?: number;
   audioWeight?: number;
+  duration?: number;
 }
 
 export const LYRICS_PROMPT_MAX = 200;
