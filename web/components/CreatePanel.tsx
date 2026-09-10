@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type GenerateBody, type Persona, type Song } from '../lib/api';
 import { loadDraft, saveDraft, type Draft } from '../lib/draft';
 import { SpinnerIcon } from './icons';
+import { LyricsAssist } from './LyricsAssist';
 
 const LYRICS_MAX = 5000;
 const STYLE_MAX = 1000;
@@ -17,6 +18,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
   const [draft, setDraft] = useState<Draft>(loadDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assistOpen, setAssistOpen] = useState(false);
 
   const { lyrics, style, title, instrumental, negativeTags, personaId, personaModel } = draft;
 
@@ -89,11 +91,21 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
       {/* Lyrics */}
       {!instrumental && (
         <div>
-          <div className="mb-2 flex items-baseline justify-between">
-            <label htmlFor="lyrics" className="field-label" style={{ marginBottom: 0 }}>Lyrics</label>
-            <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
-              {lyrics.length.toLocaleString()} / {LYRICS_MAX.toLocaleString()}
-            </span>
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <label htmlFor="lyrics" className="field-label" style={{ marginBottom: 0 }}>เนื้อเพลง</label>
+            <div className="flex items-baseline gap-3">
+              <button
+                type="button"
+                className="assist-trigger"
+                aria-expanded={assistOpen}
+                onClick={() => setAssistOpen((v) => !v)}
+              >
+                ✦ ให้ AI แต่ง
+              </button>
+              <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
+                {lyrics.length.toLocaleString()} / {LYRICS_MAX.toLocaleString()}
+              </span>
+            </div>
           </div>
           <textarea
             id="lyrics"
@@ -104,6 +116,16 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
             maxLength={LYRICS_MAX}
             placeholder={'[Verse 1]\n…\n\n[Chorus]\n…'}
           />
+          {assistOpen && (
+            <LyricsAssist
+              onClose={() => setAssistOpen(false)}
+              onPick={(v) => {
+                set('lyrics', v.text);
+                // เติมชื่อเพลงให้ด้วยถ้ายังไม่ได้ตั้งเอง
+                if (!title.trim() && v.title) set('title', v.title.slice(0, TITLE_MAX));
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -211,8 +233,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
       </details>
 
       {error && (
-        <p role="alert" className="rounded-lg px-3 py-2 text-sm"
-          style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
+        <p role="alert" className="error-box">
           {error}
         </p>
       )}

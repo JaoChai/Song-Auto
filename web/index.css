@@ -327,3 +327,97 @@ textarea.input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* กล่องแจ้ง error แบบ inline ที่ใช้ร่วมกันทั้งฟอร์ม */
+.error-box {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* แผงให้ AI แต่งเนื้อเพลง — ชมพูคือสีของสิ่งที่เครื่องแต่งให้ */
+.assist-panel {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--pink-soft);
+  border-left: 3px solid var(--pink);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.btn-assist {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding-inline: 16px;
+  border-radius: 10px;
+  background: var(--pink);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 150ms ease, transform 150ms var(--ease);
+}
+.btn-assist:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-assist:active:not(:disabled) { transform: scale(0.98); }
+.btn-assist:disabled {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+.assist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.assist-option {
+  width: 100%;
+  text-align: start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
+}
+.assist-option:hover {
+  border-color: var(--pink);
+  background: var(--pink-soft);
+}
+.assist-option-title { font-size: 14px; font-weight: 600; }
+.assist-option-body {
+  font-size: 13px;
+  color: var(--ink-3);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* ปุ่มเรียกแผงแต่งเนื้อ ที่อยู่ข้างหัวข้อ Lyrics */
+.assist-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--pink-soft);
+  color: var(--pink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+.assist-trigger:hover { filter: brightness(0.96); }
