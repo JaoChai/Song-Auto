@@ -33,6 +33,8 @@ const filled: Draft = {
   styleWeight: '0.65',
   weirdnessConstraint: '0.2',
   audioWeight: '0.8',
+  model: 'V6_WILD',
+  duration: '180',
 };
 
 describe('draft', () => {
@@ -108,5 +110,25 @@ describe('draft', () => {
   it('drops an unknown vocalGender', () => {
     globalThis.localStorage.setItem(KEY, JSON.stringify({ vocalGender: 'nonsense' }));
     expect(loadDraft().vocalGender).toBe('');
+  });
+
+  it('ตกกลับเป็น V6 เมื่อ draft เก่าไม่มีคีย์ model', () => {
+    globalThis.localStorage.setItem(
+      KEY,
+      JSON.stringify({ lyrics: 'a', style: 'b', title: 'c', instrumental: false }),
+    );
+    const d = loadDraft();
+    expect(d.model).toBe('V6');
+    expect(d.duration).toBe('');
+  });
+
+  it('ตกกลับเป็น V6 เมื่อ model ที่เก็บไว้ใช้ไม่ได้แล้ว', () => {
+    globalThis.localStorage.setItem(KEY, JSON.stringify({ model: 'V5' }));
+    expect(loadDraft().model).toBe('V6');
+  });
+
+  it('เก็บ model ที่ยังใช้ได้ไว้ตามเดิม', () => {
+    globalThis.localStorage.setItem(KEY, JSON.stringify({ model: 'V6_MINI' }));
+    expect(loadDraft().model).toBe('V6_MINI');
   });
 });
