@@ -1,4 +1,4 @@
-import { api, type GenerateBody, type Persona, type Song } from '../lib/api';
+import { api, type GenerateBody, type Song } from '../lib/api';
 import { filterSongs } from '../lib/filter';
 import { SongCard } from './SongCard';
 
@@ -12,12 +12,12 @@ interface Props {
   upsert: (song: Song | Song[]) => void;
   remove: (id: string) => void;
   onRetryFailed: (message: string) => void;
-  onPersonaCreated: (persona: Persona) => void;
+  onOpenDetail: (song: Song) => void;
 }
 
 const GRID = 'grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4';
 
-export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, remove, onRetryFailed, onPersonaCreated }: Props) {
+export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPlay, upsert, remove, onRetryFailed, onOpenDetail }: Props) {
   const retry = async (song: Song) => {
     const body: GenerateBody = {
       prompt: song.prompt,
@@ -41,15 +41,6 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
     }
   };
 
-  /** POST the persona, hand the created row up; SongCard shows the error if this throws. */
-  const createPersona = async (song: Song, name: string, description: string) => {
-    const created = await api<{ persona: Persona }>('/api/personas', {
-      method: 'POST',
-      body: JSON.stringify({ songId: song.id, name, description }),
-    });
-    onPersonaCreated(created.persona);
-  };
-
   if (!loaded) {
     return (
       <div className={GRID}>
@@ -65,13 +56,11 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
 
   const visible = filterSongs(songs, query);
 
-  if (songs.length === 0) {
+  if (visible.length === 0 && !query) {
     return (
-      <div className="card flex h-72 flex-col items-center justify-center gap-2 border-dashed text-center" style={{ background: 'transparent' }}>
-        <p className="font-medium">คลังเพลงว่างอยู่</p>
-        <p className="max-w-xs text-sm" style={{ color: 'var(--ink-2)' }}>
-          กรอกฟอร์มสร้างเพลงเพื่อเริ่มเพลงแรกของคุณ
-        </p>
+      <div className="empty-state">
+        <h2>ยังไม่มีเพลงในคลัง</h2>
+        <p>กรอกฟอร์มทางซ้ายแล้วกดสร้างเพลง ใช้เวลาราวหนึ่งถึงสองนาทีต่อเพลง</p>
       </div>
     );
   }
@@ -97,10 +86,16 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
             isPlaying={isPlaying}
             onPlay={onPlay}
             onRetry={retry}
-            onCreatePersona={createPersona}
+            onOpenDetail={onOpenDetail}
           />
         </div>
       ))}
+
+      {visible.length < 4 && (
+        <div className="empty-slot">
+          <p>สร้างเพลงถัดไปได้จากฟอร์มทางซ้าย</p>
+        </div>
+      )}
     </div>
   );
 }

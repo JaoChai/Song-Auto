@@ -4,8 +4,9 @@ import { AuthGate } from './components/AuthGate';
 import { CreatePanel } from './components/CreatePanel';
 import { LibraryGrid } from './components/LibraryGrid';
 import { PlayerBar } from './components/PlayerBar';
+import { SongDetail } from './components/SongDetail';
 import { Toast } from './components/Toast';
-import { songAudioUrl, type Song } from './lib/api';
+import { api, songAudioUrl, type Persona, type Song } from './lib/api';
 import { filterSongs } from './lib/filter';
 import { useSongs } from './hooks/useSongs';
 import { usePersonas } from './hooks/usePersonas';
@@ -14,8 +15,7 @@ export default function App() {
   const { songs, loaded, authNeeded, refresh, upsert, remove } = useSongs();
   const { personas, loaded: personasLoaded, refresh: refreshPersonas, add: addPersona } = usePersonas();
   const [query, setQuery] = useState('');
-  // only meaningful under 768px — both panels are visible side by side above it
-  const [tab, setTab] = useState<'create' | 'library'>('library');
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,6 +25,7 @@ export default function App() {
   // the song list the transport walks — what the user can actually see
   const visible = useMemo(() => filterSongs(songs, query), [songs, query]);
   const active = activeId ? songs.find((s) => s.id === activeId) ?? null : null;
+  const detail = detailId ? songs.find((s) => s.id === detailId) ?? null : null;
 
   const play = useCallback((song: Song) => {
     const url = songAudioUrl(song);
@@ -78,21 +79,9 @@ export default function App() {
 
       <AppHeader query={query} onQueryChange={setQuery} />
 
-      {/* narrow screens can't show both panels — switch between them */}
-      <div className="seg">
-        <button type="button" className="seg-btn" aria-pressed={tab === 'create'} onClick={() => setTab('create')}>
-          สร้าง
-        </button>
-        <button type="button" className="seg-btn" aria-pressed={tab === 'library'} onClick={() => setTab('library')}>
-          คลัง
-        </button>
-      </div>
-
-      {/* both panels stay mounted: switching tabs must not throw away form state */}
-      <div className="flex min-h-0 flex-1 md:flex-row">
-        <aside
-          className={`aside-divider ${tab === 'create' ? 'flex' : 'hidden'} min-h-0 w-full flex-col overflow-y-auto md:flex md:w-[380px] md:shrink-0`}
-        >
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* ① ซ้าย = สิ่งที่เราป้อน */}
+        <aside className="create-rail">
           <CreatePanel
             personas={personas}
             personasLoaded={personasLoaded}
@@ -100,14 +89,13 @@ export default function App() {
               upsert(created);
               setActiveId(created[0].id);
               wasPending.current = true;
-              // on desktop the library is already in view; on mobile show the new cards
-              setTab('library');
               setToast('เริ่มสร้างเพลงแล้ว — จะขึ้นในคลังเมื่อเสร็จ');
             }}
           />
         </aside>
 
-        <main className={`${tab === 'library' ? 'block' : 'hidden'} min-h-0 w-full flex-1 overflow-y-auto px-4 py-6 md:block md:px-6 md:py-8`}>
+        {/* ② ขวา = สิ่งที่ได้กลับมา · ③ รายละเอียดทับเข้ามาจากขอบขวา */}
+        <main className="library-main">
           <LibraryGrid
             songs={songs}
             loaded={loaded}
@@ -118,11 +106,36 @@ export default function App() {
             upsert={upsert}
             remove={remove}
             onRetryFailed={setToast}
-            onPersonaCreated={(persona) => {
-              addPersona(persona);
-              setToast(`เพิ่ม persona “${persona.name}” แล้ว`);
-            }}
+            onOpenDetail={(s) => setDetailId(s.id)}
           />
+
+          {detail && (
+            <>
+              <div className="detail-scrim" onClick={() => setDetailId(null)} aria-hidden="true" />
+              <div className="detail-layer rise-in">
+                <SongDetail
+                  song={detail}
+                  parent={songs.find((s) => s.id === detail.parentSongId) ?? null}
+                  personaName={personas.find((p) => p.songId === detail.id)?.name ?? null}
+                  onClose={() => setDetailId(null)}
+                  onSelectSong={(id) => setDetailId(id)}
+                  onExtended={(created) => {
+                    upsert(created);
+                    setDetailId(null);
+                    setToast('เริ่มต่อเพลงแล้ว — จะขึ้นในคลังเมื่อเสร็จ');
+                  }}
+                  onCreatePersona={async (song, input) => {
+                    const out = await api<{ persona: Persona }>('/api/personas', {
+                      method: 'POST',
+                      body: JSON.stringify({ songId: song.id, ...input }),
+                    });
+                    addPersona(out.persona);
+                    setToast(`เพิ่ม persona “${out.persona.name}” แล้ว`);
+                  }}
+                />
+              </div>
+            </>
+          )}
         </main>
       </div>
 
