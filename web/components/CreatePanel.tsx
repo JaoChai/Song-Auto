@@ -168,8 +168,12 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         </div>
       )}
 
-      {/* Persona — ซ่อนทั้งก้อนถ้ายังไม่มีสักอัน ฟอร์มจะได้ไม่รกโดยไม่จำเป็น */}
-      {personas.length > 0 && (
+      {/* Persona */}
+      {personasLoaded && personas.length === 0 ? (
+        <p className="text-sm" style={{ color: 'var(--ink-3)' }}>
+          ยังไม่มี persona — สร้างได้จากเพลงที่สร้างเสร็จแล้ว (เปิดเพลง แล้วกด "ทำ persona")
+        </p>
+      ) : personas.length > 0 && (
         <div>
           <label htmlFor="persona" className="field-label">ใช้ persona</label>
           <select
@@ -219,19 +223,17 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         </div>
       )}
 
-      {/* Exclude styles — collapsed */}
-      <details className="text-sm">
-        <summary className="cursor-pointer select-none list-none" style={{ color: 'var(--ink-3)' }}>
-          Exclude styles (optional)
-        </summary>
+      {/* Exclude styles */}
+      <div>
+        <label htmlFor="negativeTags" className="field-label">Exclude styles (optional)</label>
         <input
-          aria-label="Exclude styles"
-          className="input mt-3"
+          id="negativeTags"
+          className="input"
           value={negativeTags}
           onChange={(e) => set('negativeTags', e.target.value)}
           placeholder="heavy metal, upbeat drums"
         />
-      </details>
+      </div>
 
       {error && (
         <p role="alert" className="error-box">

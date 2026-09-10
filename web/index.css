@@ -400,7 +400,7 @@ textarea.input {
   gap: 14px;
   padding: 18px;
   background: var(--surface);
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--line-strong);
   height: 100%;
   overflow-y: auto;
 }
@@ -530,7 +530,7 @@ textarea.input {
   position: absolute;
   inset: 0;
   z-index: 20;
-  background: rgba(23, 18, 43, 0.28);
+  background: rgba(23, 18, 43, 0.4);
 }
 .detail-layer {
   position: absolute;
@@ -538,7 +538,7 @@ textarea.input {
   inset-inline-end: 0;
   z-index: 21;
   width: min(440px, 100%);
-  box-shadow: -12px 0 32px -18px rgba(23, 18, 43, 0.45);
+  box-shadow: -16px 0 40px -12px rgba(23, 18, 43, 0.55);
 }
 /* จอแคบ — ขึ้นจากด้านล่างแทนการเลื่อนจากข้าง
    ต้องเป็น position: fixed อิงกับ viewport ไม่ใช่ absolute อิงกับ .library-main —
