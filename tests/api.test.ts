@@ -50,12 +50,41 @@ const stubKieAndMp3 = (pollData: unknown) => {
   return { mock, mp3 };
 };
 
+const stubWavGenerate = (taskId = 'wavtask-1') =>
+  vi.fn().mockResolvedValue({
+    ok: true, status: 200, json: async () => ({ code: 200, msg: 'success', data: { taskId } }),
+  });
+
+const stubWavPoll = (data: unknown) =>
+  vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ code: 200, msg: 'success', data }) });
+
+/**
+ * Routes the full generate→wav pipeline by URL: kie generate poll, wav kickoff, wav poll,
+ * and everything else (mp3/jpg/wav bytes) to one download stub. Covers both getTask calls a
+ * song needs to go PENDING → SUCCESS now (first kicks off WAV, second completes it).
+ */
+const stubFullFlow = (pollData: unknown, wavPollData: unknown, opts: { wavTaskId?: string } = {}) => {
+  const dl = stubMp3Download();
+  const mock = vi.fn(async (url: string | URL) => {
+    const u = String(url);
+    if (u.includes('/api/v1/generate/record-info')) return stubKiePoll(pollData)() as unknown as Response;
+    if (u.includes('/api/v1/wav/generate')) return stubWavGenerate(opts.wavTaskId)() as unknown as Response;
+    if (u.includes('/api/v1/wav/record-info')) return stubWavPoll(wavPollData)() as unknown as Response;
+    if (u.includes('/api/v1/generate')) return stubKieGenerate()() as unknown as Response;
+    return dl() as unknown as Response;
+  });
+  vi.stubGlobal('fetch', mock);
+  return { mock, dl };
+};
+
+const wavSuccess = (audioWavUrl = 'https://cdn/1.wav') => ({ successFlag: 'SUCCESS', response: { audioWavUrl } });
+
 const baseInput = { prompt: 'a calm piano song', instrumental: true, model: 'V4_5' };
 
 const rowFixture = (id: string, taskId: string, createdAt: string, variant = 1): Row => ({
   id, task_id: taskId, title: 't', prompt: 'p', style: 's', tags: '', model: 'V4_5',
   instrumental: 0, status: 'PENDING', error: null, r2_key: null, image_key: null,
-  duration: null, created_at: createdAt, variant, suno_id: null,
+  duration: null, created_at: createdAt, variant, suno_id: null, wav_task_id: null,
 });
 
 // --------------------------------------------------------------------------
@@ -168,45 +197,125 @@ describe('API routes', () => {
     expect(String(mock.mock.calls[0][0])).toContain('taskId=task-1');
   });
 
-  it('GET /api/tasks/:id: SUCCESS — downloads mp3, stores R2 {id}.mp3, updates row, returns song', async () => {
+  it('GET /api/tasks/:id: track ready → kicks off WAV, stays PENDING with wav_task_id set (no mp3 downloaded)', async () => {
     const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
     const cookie = await cookieFor('pw');
-    stubKieAndMp3({
-      taskId: 'task-1',
-      status: 'SUCCESS',
-      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano' }] },
-    });
+    const { mock } = stubFullFlow(
+      {
+        taskId: 'task-1', status: 'SUCCESS',
+        response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano' }] },
+      },
+      wavSuccess(),
+    );
     const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'PENDING' });
+    expect(data[0].status).toBe('PENDING');
+    expect(data[0].wav_task_id).toBe('wavtask-1');
+    expect(data[0].tags).toBe('calm, piano');
+    expect(data[0].duration).toBe(198.4);
+    expect(data[0].suno_id).toBe('a1');
+    expect(data[0].r2_key).toBeNull();
+    expect(store.size).toBe(0);
+    expect(String(mock.mock.calls.find((c) => String(c[0]).includes('wav/generate'))?.[0])).toContain('wav/generate');
+  });
+
+  it('GET /api/tasks/:id: SUCCESS — second poll after WAV is ready downloads it, stores R2 {id}.wav, returns song', async () => {
+    const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
+    const cookie = await cookieFor('pw');
+    stubFullFlow(
+      {
+        taskId: 'task-1', status: 'SUCCESS',
+        response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano' }] },
+      },
+      wavSuccess(),
+    );
+    await app.request('/api/tasks/s1', { headers: { cookie } }, env); // phase 1: kicks off WAV
+
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env); // phase 2: WAV ready
     expect(res.status).toBe(200);
     const body = await res.json() as { status: string; song: SongRow };
     expect(body.status).toBe('SUCCESS');
     expect(body.song.id).toBe('s1');
-    expect(body.song.r2Key).toBe('s1.mp3');
+    expect(body.song.r2Key).toBe('s1.wav');
     expect(body.song.tags).toBe('calm, piano');
     expect(body.song.duration).toBe(198.4);
     // row updated in D1
     expect(data[0].status).toBe('SUCCESS');
-    expect(data[0].r2_key).toBe('s1.mp3');
-    expect(data[0].tags).toBe('calm, piano');
-    expect(data[0].duration).toBe(198.4);
-    // mp3 stored under {id}.mp3
-    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
-    expect(store.get('s1.mp3')).toHaveLength(3);
-    expect(lastSql.value).toMatch(/UPDATE songs SET status = 'SUCCESS'/i);
+    expect(data[0].r2_key).toBe('s1.wav');
+    // wav stored under {id}.wav
+    expect(store.get('s1.wav')).toBeInstanceOf(Uint8Array);
+    expect(store.get('s1.wav')).toHaveLength(3);
   });
 
-  it('GET /api/tasks/:id: SUCCESS download fails 3x → row stays PENDING, transient response', async () => {
-    const { env, data } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
+  it('GET /api/tasks/:id: WAV kickoff fails (kie down) → falls back to mp3 immediately, still SUCCESS', async () => {
+    const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
     const cookie = await cookieFor('pw');
     const pollStub = stubKiePoll({
-      taskId: 'task-1',
-      status: 'SUCCESS',
+      taskId: 'task-1', status: 'SUCCESS',
       response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'x' }] },
     });
-    const dlStub = vi.fn().mockRejectedValue(new Error('ECONNRESET'));
+    const dl = stubMp3Download();
     vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
       const u = String(url);
       if (u.includes('/api/v1/generate/record-info')) return pollStub() as unknown as Response;
+      if (u.includes('/api/v1/wav/generate')) throw new Error('kie unreachable');
+      return dl() as unknown as Response;
+    }));
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(res.status).toBe(200);
+    expect((await res.json() as { status: string }).status).toBe('SUCCESS');
+    expect(data[0].status).toBe('SUCCESS');
+    expect(data[0].r2_key).toBe('s1.mp3');
+    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+  });
+
+  it('GET /api/tasks/:id: WAV poll still PENDING → stays PENDING without hitting kie generate poll again', async () => {
+    const { env, data } = makeEnv([{
+      ...rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z'),
+      wav_task_id: 'wavtask-1', suno_id: 'a1', duration: 100, tags: 'calm',
+    } as Row]);
+    const cookie = await cookieFor('pw');
+    const { mock } = stubFullFlow({ taskId: 'task-1', status: 'SUCCESS', response: { sunoData: [] } }, { successFlag: 'PENDING' });
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'PENDING' });
+    expect(data[0].status).toBe('PENDING');
+    expect(mock.mock.calls.some((c) => String(c[0]).includes('generate/record-info'))).toBe(false);
+  });
+
+  it('GET /api/tasks/:id: WAV poll FAILED → falls back to mp3 via a fresh kie poll, still SUCCESS', async () => {
+    const { env, data, store } = makeEnv([{
+      ...rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z'),
+      wav_task_id: 'wavtask-1', suno_id: 'a1', duration: 198.4, tags: 'calm, piano',
+    } as Row]);
+    const cookie = await cookieFor('pw');
+    stubFullFlow(
+      {
+        taskId: 'task-1', status: 'SUCCESS',
+        response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano' }] },
+      },
+      { successFlag: 'GENERATE_WAV_FAILED', errorMessage: 'wav engine died' },
+    );
+    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect(res.status).toBe(200);
+    expect((await res.json() as { status: string }).status).toBe('SUCCESS');
+    expect(data[0].status).toBe('SUCCESS');
+    expect(data[0].r2_key).toBe('s1.mp3');
+    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+  });
+
+  it('GET /api/tasks/:id: WAV download fails 3x → row stays PENDING, transient response', async () => {
+    const { env, data } = makeEnv([{
+      ...rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z'),
+      wav_task_id: 'wavtask-1', suno_id: 'a1', duration: 198.4, tags: 'x',
+    } as Row]);
+    const cookie = await cookieFor('pw');
+    const wavPollStub = stubWavPoll(wavSuccess());
+    const dlStub = vi.fn().mockRejectedValue(new Error('ECONNRESET'));
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes('/api/v1/wav/record-info')) return wavPollStub() as unknown as Response;
       return dlStub() as unknown as Response;
     }));
     const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
@@ -268,67 +377,82 @@ describe('API routes', () => {
     expect(body.songs[0].taskId).toBe('t1'); // camelCase mapping verified
   });
 
-  it('GET /api/tasks/:id: SUCCESS — stores the cover as {id}.jpg and sets image_key', async () => {
+  it('GET /api/tasks/:id: track ready — stores the cover as {id}.jpg and sets image_key even before WAV finishes', async () => {
     const { env, data, store } = makeEnv([rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z')]);
     const cookie = await cookieFor('pw');
-    stubKieAndMp3({
-      taskId: 'task-1',
-      status: 'SUCCESS',
-      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano', imageUrl: 'https://cdn/1.jpg' }] },
-    });
+    stubFullFlow(
+      {
+        taskId: 'task-1', status: 'SUCCESS',
+        response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 198.4, tags: 'calm, piano', imageUrl: 'https://cdn/1.jpg' }] },
+      },
+      wavSuccess(),
+    );
 
-    const res = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
-    const body = await res.json() as { status: string; song: SongRow };
-
-    expect(body.status).toBe('SUCCESS');
-    expect(body.song.imageKey).toBe('s1.jpg');
+    const phase1 = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect((await phase1.json() as { status: string }).status).toBe('PENDING');
     expect(data[0].image_key).toBe('s1.jpg');
     expect(store.get('s1.jpg')).toBeInstanceOf(Uint8Array);
-    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+
+    const phase2 = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    const body = await phase2.json() as { status: string; song: SongRow };
+    expect(body.status).toBe('SUCCESS');
+    expect(body.song.imageKey).toBe('s1.jpg');
+    expect(store.get('s1.wav')).toBeInstanceOf(Uint8Array);
   });
 
-  it('GET /api/tasks/:id: SUCCESS — cover fetch failure leaves image_key null but keeps the song', async () => {
+  it('GET /api/tasks/:id: cover fetch failure leaves image_key null but keeps the song going', async () => {
     const { env, data, store } = makeEnv([rowFixture('s2', 'task-2', '2026-08-26T00:00:00.000Z')]);
     const cookie = await cookieFor('pw');
 
-    // route record-info to kie, the .jpg to a throw, everything else to the mp3 bytes
+    // route record-info to kie, the .jpg to a throw, everything else to the mp3/wav bytes
     const poll = stubKiePoll({
       taskId: 'task-2', status: 'SUCCESS',
       response: { sunoData: [{ id: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 90, tags: 'pop', imageUrl: 'https://cdn/2.jpg' }] },
     });
+    const wavGen = stubWavGenerate('wavtask-2');
+    const wavPoll = stubWavPoll(wavSuccess('https://cdn/2.wav'));
     const dl = stubMp3Download();
     vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
       const u = String(url);
       if (u.includes('/api/v1/generate/record-info')) return poll() as unknown as Response;
+      if (u.includes('/api/v1/wav/generate')) return wavGen() as unknown as Response;
+      if (u.includes('/api/v1/wav/record-info')) return wavPoll() as unknown as Response;
       if (u.endsWith('.jpg')) throw new Error('cover unreachable');
       return dl() as unknown as Response;
     }));
 
-    const res = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
-    const body = await res.json() as { status: string; song: SongRow };
+    await app.request('/api/tasks/s2', { headers: { cookie } }, env); // phase 1
+    expect(data[0].image_key).toBeNull();
+    expect(store.has('s2.jpg')).toBe(false);
 
+    const res = await app.request('/api/tasks/s2', { headers: { cookie } }, env); // phase 2
+    const body = await res.json() as { status: string; song: SongRow };
     expect(body.status).toBe('SUCCESS');
     expect(body.song.imageKey).toBeNull();
     expect(data[0].status).toBe('SUCCESS');
-    expect(store.get('s2.mp3')).toBeInstanceOf(Uint8Array);
+    expect(store.get('s2.wav')).toBeInstanceOf(Uint8Array);
     expect(store.has('s2.jpg')).toBe(false);
   });
 
-  it('GET /api/tasks/:id: FIRST_SUCCESS — v1 finishes, v2 keeps waiting', async () => {
+  it('GET /api/tasks/:id: FIRST_SUCCESS — v1 finishes (WAV then completes), v2 keeps waiting', async () => {
     const { env, data, store } = makeEnv([
       rowFixture('s1', 'task-1', '2026-08-26T00:00:00.000Z', 1),
       rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
     ]);
     const cookie = await cookieFor('pw');
-    stubKieAndMp3({
-      taskId: 'task-1',
-      status: 'FIRST_SUCCESS',
-      response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' }] },
-    });
+    stubFullFlow(
+      {
+        taskId: 'task-1', status: 'FIRST_SUCCESS',
+        response: { sunoData: [{ id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' }] },
+      },
+      wavSuccess(),
+    );
 
     const first = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
-    expect((await first.json() as { status: string }).status).toBe('SUCCESS');
-    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
+    expect((await first.json() as { status: string }).status).toBe('PENDING');
+    const firstDone = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    expect((await firstDone.json() as { status: string }).status).toBe('SUCCESS');
+    expect(store.get('s1.wav')).toBeInstanceOf(Uint8Array);
 
     const second = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
     expect(await second.json()).toEqual({ status: 'PENDING' });
@@ -341,18 +465,22 @@ describe('API routes', () => {
       rowFixture('s2', 'task-1', '2026-08-26T00:00:00.000Z', 2),
     ]);
     const cookie = await cookieFor('pw');
-    stubKieAndMp3({
-      taskId: 'task-1',
-      status: 'SUCCESS',
-      response: {
-        sunoData: [
-          { id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' },
-          { id: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 101, tags: 'warm' },
-        ],
+    stubFullFlow(
+      {
+        taskId: 'task-1', status: 'SUCCESS',
+        response: {
+          sunoData: [
+            { id: 'a1', audioUrl: 'https://cdn/1.mp3', duration: 100, tags: 'calm' },
+            { id: 'a2', audioUrl: 'https://cdn/2.mp3', duration: 101, tags: 'warm' },
+          ],
+        },
       },
-    });
+      wavSuccess(),
+    );
 
-    const r1 = await app.request('/api/tasks/s1', { headers: { cookie } }, env);
+    await app.request('/api/tasks/s1', { headers: { cookie } }, env); // phase 1 each
+    await app.request('/api/tasks/s2', { headers: { cookie } }, env);
+    const r1 = await app.request('/api/tasks/s1', { headers: { cookie } }, env); // phase 2 each
     const r2 = await app.request('/api/tasks/s2', { headers: { cookie } }, env);
     const b1 = await r1.json() as { status: string; song: SongRow };
     const b2 = await r2.json() as { status: string; song: SongRow };
@@ -361,8 +489,8 @@ describe('API routes', () => {
     expect(b2.song.sunoId).toBe('a2');
     expect(b1.song.tags).toBe('calm');
     expect(b2.song.tags).toBe('warm');
-    expect(store.get('s1.mp3')).toBeInstanceOf(Uint8Array);
-    expect(store.get('s2.mp3')).toBeInstanceOf(Uint8Array);
+    expect(store.get('s1.wav')).toBeInstanceOf(Uint8Array);
+    expect(store.get('s2.wav')).toBeInstanceOf(Uint8Array);
     expect(data).toHaveLength(2);
   });
 

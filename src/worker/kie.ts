@@ -204,6 +204,86 @@ export async function kiePollTask(env: Env, taskId: string): Promise<KiePoll> {
   return { kind: 'TRANSIENT', note: `kie poll: unexpected status '${String(status)}'` };
 }
 
+const WAV_FAILED_STATUSES = [
+  'CREATE_TASK_FAILED',
+  'GENERATE_WAV_FAILED',
+  'CALLBACK_EXCEPTION',
+] as const;
+
+export interface WavGenerateInput {
+  /** taskId ของงานสร้าง/ต่อเพลงเดิม (ไม่ใช่ taskId ของงานแปลง WAV) */
+  taskId: string;
+  /** sunoId ของแทร็กที่จะแปลง — ต้องระบุเพราะหนึ่ง taskId มีได้หลายแทร็ก */
+  audioId: string;
+}
+
+/** POST /api/v1/wav/generate — เริ่มงานแปลง WAV คืน taskId ของงานแปลง (คนละอันกับ taskId ที่ส่งเข้าไป) ไว้ poll ต่อ */
+export async function kieWavGenerate(env: Env, input: WavGenerateInput): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/api/v1/wav/generate`, {
+      method: 'POST',
+      headers: authHeaders(env),
+      // kie บังคับให้มี callBackUrl เหมือน endpoint อื่นทั้งที่เราใช้วิธี poll
+      body: JSON.stringify({ taskId: input.taskId, audioId: input.audioId, callBackUrl: CALLBACK_URL }),
+    });
+  } catch (err) {
+    throw new Error(`kie wav generate network error: ${(err as Error).message}`);
+  }
+
+  let envelope: { code: number; msg: string; data?: { taskId?: string } };
+  try {
+    envelope = await res.json();
+  } catch {
+    throw new Error(`kie wav generate: invalid JSON response (HTTP ${res.status})`);
+  }
+  if (envelope.code !== 200) {
+    throw new Error(`kie wav generate failed (code ${envelope.code}): ${envelope.msg}`);
+  }
+  const taskId = envelope.data?.taskId;
+  if (!taskId) throw new Error('kie wav generate: response missing data.taskId');
+  return taskId;
+}
+
+export type WavPoll =
+  | { kind: 'PENDING' }
+  | { kind: 'SUCCESS'; audioWavUrl: string }
+  | { kind: 'FAILED'; error: string }
+  | { kind: 'TRANSIENT'; note: string };
+
+/** GET /api/v1/wav/record-info — poll งานแปลง WAV ที่เริ่มด้วย kieWavGenerate (สถานะอยู่ใน successFlag ไม่ใช่ status) */
+export async function kieWavPoll(env: Env, taskId: string): Promise<WavPoll> {
+  let data: {
+    successFlag?: string;
+    errorMessage?: string;
+    response?: { audioWavUrl?: string };
+  };
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/wav/record-info?taskId=${encodeURIComponent(taskId)}`, {
+      headers: { Authorization: `Bearer ${env.KIE_API_KEY}` },
+    });
+    const envelope = await res.json() as { code: number; msg: string; data: typeof data };
+    if (envelope.code !== 200) {
+      return { kind: 'TRANSIENT', note: `kie wav poll envelope code ${envelope.code}: ${envelope.msg}` };
+    }
+    data = envelope.data;
+  } catch (err) {
+    return { kind: 'TRANSIENT', note: `kie wav poll network error: ${(err as Error).message}` };
+  }
+
+  const status = data?.successFlag;
+  if (status && (WAV_FAILED_STATUSES as readonly string[]).includes(status)) {
+    return { kind: 'FAILED', error: data?.errorMessage || `kie wav task ${status}` };
+  }
+  if (status === 'SUCCESS') {
+    const audioWavUrl = data?.response?.audioWavUrl;
+    if (!audioWavUrl) return { kind: 'TRANSIENT', note: 'kie wav poll: SUCCESS but missing audioWavUrl' };
+    return { kind: 'SUCCESS', audioWavUrl };
+  }
+  if (status === 'PENDING') return { kind: 'PENDING' };
+  return { kind: 'TRANSIENT', note: `kie wav poll: unexpected status '${String(status)}'` };
+}
+
 export const PERSONA_SEGMENT_MIN = 10;
 export const PERSONA_SEGMENT_MAX = 30;
 

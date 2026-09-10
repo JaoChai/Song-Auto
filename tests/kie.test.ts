@@ -3,7 +3,7 @@ import {
   validateGenerate, kieGenerate, kiePollTask, kieCreatePersona,
   validateExtend, kieExtend, type GenerateInput, type ExtendInput,
   validateLyricsPrompt, kieGenerateLyrics, kiePollLyrics, LYRICS_PROMPT_LIMIT,
-  validatePersonaSegment,
+  validatePersonaSegment, kieWavGenerate, kieWavPoll,
 } from '../src/worker/kie';
 import type { Env } from '../src/worker/types';
 
@@ -739,5 +739,114 @@ describe('kiePollLyrics', () => {
   it('คืน TRANSIENT เมื่อ network พัง', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
     expect((await kiePollLyrics(env, 'lyr-1')).kind).toBe('TRANSIENT');
+  });
+});
+
+describe('kieWavGenerate', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('POSTs to wav/generate with the auth header and callBackUrl, returns the conversion taskId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 'wavtask-1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const taskId = await kieWavGenerate(env, { taskId: 'task-1', audioId: 'a1' });
+    expect(taskId).toBe('wavtask-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.kie.ai/api/v1/wav/generate');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-key');
+    const body = JSON.parse(init.body);
+    expect(body.taskId).toBe('task-1');
+    expect(body.audioId).toBe('a1');
+    expect(body.callBackUrl).toBeTruthy();
+  });
+
+  it('throws on envelope code !== 200', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 409, msg: 'WAV record already exists', data: null }),
+    }));
+    await expect(kieWavGenerate(env, { taskId: 't', audioId: 'a' })).rejects.toThrow(/already exists/);
+  });
+
+  it('throws when data.taskId is missing from a 200 response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: {} }),
+    }));
+    await expect(kieWavGenerate(env, { taskId: 't', audioId: 'a' })).rejects.toThrow(/taskId/);
+  });
+
+  it('throws on a network error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
+    await expect(kieWavGenerate(env, { taskId: 't', audioId: 'a' })).rejects.toThrow();
+  });
+});
+
+describe('kieWavPoll', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const stubPoll = (data: unknown) =>
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data }),
+    }));
+
+  it('maps successFlag PENDING → PENDING', async () => {
+    stubPoll({ successFlag: 'PENDING' });
+    expect((await kieWavPoll(env, 't')).kind).toBe('PENDING');
+  });
+
+  it('maps successFlag SUCCESS with response.audioWavUrl → SUCCESS carrying that URL', async () => {
+    stubPoll({ successFlag: 'SUCCESS', response: { audioWavUrl: 'https://cdn/x.wav' } });
+    const out = await kieWavPoll(env, 't');
+    expect(out.kind).toBe('SUCCESS');
+    if (out.kind !== 'SUCCESS') throw new Error('unreachable');
+    expect(out.audioWavUrl).toBe('https://cdn/x.wav');
+  });
+
+  it('SUCCESS without audioWavUrl → TRANSIENT (safe to retry, not a hard failure)', async () => {
+    stubPoll({ successFlag: 'SUCCESS', response: {} });
+    expect((await kieWavPoll(env, 't')).kind).toBe('TRANSIENT');
+  });
+
+  it('maps each FAILED successFlag to FAILED with errorMessage', async () => {
+    for (const status of ['CREATE_TASK_FAILED', 'GENERATE_WAV_FAILED', 'CALLBACK_EXCEPTION']) {
+      stubPoll({ successFlag: status, errorMessage: `boom: ${status}` });
+      const out = await kieWavPoll(env, 't');
+      expect(out.kind).toBe('FAILED');
+      if (out.kind !== 'FAILED') throw new Error('unreachable');
+      expect(out.error).toBe(`boom: ${status}`);
+    }
+  });
+
+  it('envelope code !== 200 → TRANSIENT', async () => {
+    stubPoll(undefined);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 455, msg: 'maintenance' }),
+    }));
+    expect((await kieWavPoll(env, 't')).kind).toBe('TRANSIENT');
+  });
+
+  it('network throw → TRANSIENT', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
+    expect((await kieWavPoll(env, 't')).kind).toBe('TRANSIENT');
+  });
+
+  it('GETs record-info with the taskId query param and Bearer header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { successFlag: 'PENDING' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieWavPoll(env, 'wavtask-42');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.kie.ai/api/v1/wav/record-info?taskId=wavtask-42');
+    expect(init.headers.Authorization).toBe('Bearer test-key');
   });
 });

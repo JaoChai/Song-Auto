@@ -1,6 +1,9 @@
 import type { Context } from 'hono';
 import { nanoid } from 'nanoid';
-import { kieExtend, kieGenerate, kiePollTask, validateExtend, validateGenerate, type ExtendInput, type GenerateInput } from './kie';
+import {
+  kieExtend, kieGenerate, kiePollTask, kieWavGenerate, kieWavPoll, validateExtend, validateGenerate,
+  type ExtendInput, type GenerateInput, type TrackInfo,
+} from './kie';
 import type { Env, SongRow } from './types';
 
 const c = (ctx: Context<{ Bindings: Env }>) => ctx;
@@ -95,14 +98,95 @@ export async function createSong(ctx: Context<{ Bindings: Env }>) {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const MAX_DOWNLOAD_ATTEMPTS = 3;
 
+/** ดาวน์โหลดไฟล์จาก URL พร้อม retry — คืน null ถ้าล้มเหลวทุกครั้ง (ผู้เรียกตัดสินใจว่าจะ PENDING ต่อหรือ fallback) */
+async function downloadBytes(url: string): Promise<Uint8Array | null> {
+  for (let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
+      return new Uint8Array(await res.arrayBuffer());
+    } catch {
+      if (attempt < MAX_DOWNLOAD_ATTEMPTS) await sleep(250 * attempt);
+    }
+  }
+  return null;
+}
+
+/** เก็บ mp3 ลง R2 แล้วปิดงานเป็น SUCCESS — ใช้เป็น fallback เมื่อแปลง WAV ไม่สำเร็จ จะได้ไม่เสียเพลงที่สร้างมาแล้วทิ้งไป */
+async function finishWithMp3(
+  ctx: Context<{ Bindings: Env }>,
+  id: string,
+  track: TrackInfo,
+  imageKey: string | null,
+) {
+  const bytes = await downloadBytes(track.audioUrl);
+  if (!bytes) return c(ctx).json({ status: 'PENDING', transient: true });
+
+  const r2Key = `${id}.mp3`;
+  await ctx.env.AUDIO.put(r2Key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } });
+
+  await ctx.env.DB.prepare(
+    `UPDATE songs SET status = 'SUCCESS', r2_key = ?, image_key = ?, tags = ?, duration = ?, suno_id = ?, error = NULL WHERE id = ?`,
+  ).bind(r2Key, imageKey, track.tags ?? '', track.duration, track.sunoId, id).run();
+
+  const row = await ctx.env.DB.prepare('SELECT * FROM songs WHERE id = ?').bind(id).first<Record<string, unknown>>();
+  return c(ctx).json({ status: 'SUCCESS', song: toSongRow(row!) });
+}
+
+/**
+ * แถวที่มี wav_task_id แล้ว (แทร็ก mp3 หาเจอแล้ว เริ่มแปลง WAV ไปแล้ว) — poll งานแปลงต่อ
+ * แปลงไม่สำเร็จก็ไม่ทำให้เพลงหาย ถอยไปใช้ mp3 แทน (ดึง audioUrl ใหม่จาก record-info เดิม)
+ */
+async function pollWavConversion(ctx: Context<{ Bindings: Env }>, row: Record<string, unknown>, id: string) {
+  const wavPoll = await kieWavPoll(ctx.env, row.wav_task_id as string);
+
+  if (wavPoll.kind === 'TRANSIENT') return c(ctx).json({ status: 'PENDING', transient: true });
+  if (wavPoll.kind === 'PENDING') return c(ctx).json({ status: 'PENDING' });
+
+  const variant = Number(row.variant ?? 1);
+  const imageKey = (row.image_key as string | null) ?? null;
+
+  if (wavPoll.kind === 'FAILED') {
+    const poll = await kiePollTask(ctx.env, row.task_id as string);
+    const track = poll.kind === 'PENDING' ? poll.tracks[variant - 1] : undefined;
+    if (!track || !track.audioUrl) {
+      if (variant > 1) {
+        await ctx.env.DB.prepare('DELETE FROM songs WHERE id = ?').bind(id).run();
+        return c(ctx).json({ status: 'GONE' });
+      }
+      const message = 'แปลงไฟล์เป็น WAV ไม่สำเร็จ และดึงไฟล์ mp3 สำรองไม่ได้';
+      await ctx.env.DB.prepare(`UPDATE songs SET status = 'FAILED', error = ? WHERE id = ?`).bind(message, id).run();
+      return c(ctx).json({ status: 'FAILED', error: message });
+    }
+    return finishWithMp3(ctx, id, track, imageKey);
+  }
+
+  // SUCCESS
+  const bytes = await downloadBytes(wavPoll.audioWavUrl);
+  if (!bytes) return c(ctx).json({ status: 'PENDING', transient: true });
+
+  const r2Key = `${id}.wav`;
+  await ctx.env.AUDIO.put(r2Key, bytes, { httpMetadata: { contentType: 'audio/wav' } });
+
+  await ctx.env.DB.prepare(`UPDATE songs SET status = 'SUCCESS', r2_key = ?, error = NULL WHERE id = ?`)
+    .bind(r2Key, id).run();
+
+  const updated = await ctx.env.DB.prepare('SELECT * FROM songs WHERE id = ?').bind(id).first<Record<string, unknown>>();
+  return c(ctx).json({ status: 'SUCCESS', song: toSongRow(updated!) });
+}
+
 /**
  * GET /api/tasks/:id — poll kie once for this row's task, then take the track that belongs to
  * this row (`sunoData[variant - 1]`). A row whose track never arrives — the job finished with
  * fewer tracks, or failed — is deleted and reported as GONE, except variant 1, which is kept
  * as a FAILED row so the generation doesn't silently vanish from the library.
+ *
+ * เพลงทุกเพลงต้องเป็น WAV เสมอ: พอเจอแทร็ก mp3 แล้วจะไม่โหลดมาเก็บทันที แต่สั่งแปลง WAV ก่อน
+ * (เก็บ wav_task_id ไว้ที่แถว) แล้วค้าง PENDING ต่อจนกว่าแปลงเสร็จ — ฝั่งเว็บ poll ซ้ำเหมือนเดิมอยู่แล้ว
+ * ไม่ต้องแก้ logic ฝั่ง client เลย
  */
 export async function getTask(ctx: Context<{ Bindings: Env }>) {
-  const id = ctx.req.param('id');
+  const id = ctx.req.param('id') as string;
   const row = await ctx.env.DB.prepare('SELECT * FROM songs WHERE id = ?').bind(id).first<Record<string, unknown> | null>();
   if (!row) return c(ctx).json({ error: `song not found: ${id}` }, 404);
 
@@ -126,6 +210,11 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
     return c(ctx).json({ status: 'FAILED', error: message });
   };
 
+  // การแปลง WAV เริ่มไปแล้ว — poll งานนั้นต่อ ไม่ต้องยิง kie generate poll ซ้ำ
+  if (row.wav_task_id) {
+    return pollWavConversion(ctx, row, id);
+  }
+
   const poll = await kiePollTask(ctx.env, row.task_id as string);
 
   if (poll.kind === 'FAILED') return fail(poll.error);
@@ -142,27 +231,7 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
     return c(ctx).json({ status: 'PENDING' });
   }
 
-  const { audioUrl, duration, tags, imageUrl, sunoId } = track;
-
-  let bytes: Uint8Array | null = null;
-  for (let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++) {
-    try {
-      const res = await fetch(audioUrl);
-      if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
-      const buf = await res.arrayBuffer();
-      bytes = new Uint8Array(buf);
-      break;
-    } catch {
-      if (attempt < MAX_DOWNLOAD_ATTEMPTS) await sleep(250 * attempt);
-    }
-  }
-  if (!bytes) {
-    // row stays PENDING so the next poll retries the download
-    return c(ctx).json({ status: 'PENDING', transient: true });
-  }
-
-  const r2Key = `${id}.mp3`;
-  await ctx.env.AUDIO.put(r2Key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } });
+  const { duration, tags, imageUrl, sunoId } = track;
 
   // cover art is best-effort — a failure must not fail the song
   let imageKey: string | null = null;
@@ -179,18 +248,19 @@ export async function getTask(ctx: Context<{ Bindings: Env }>) {
     }
   }
 
-  await ctx.env.DB.prepare(
-    `UPDATE songs SET status = 'SUCCESS', r2_key = ?, image_key = ?, tags = ?, duration = ?, suno_id = ?, error = NULL WHERE id = ?`,
-  ).bind(r2Key, imageKey, tags ?? '', duration, sunoId, id).run();
+  // แปลง WAV เริ่มไม่ได้ (kie ล่ม/เน็ตหลุด) — ไม่ต้องรอ ใช้ mp3 ไปเลยดีกว่าเพลงค้าง PENDING ตลอดกาล
+  let wavTaskId: string;
+  try {
+    wavTaskId = await kieWavGenerate(ctx.env, { taskId: row.task_id as string, audioId: sunoId });
+  } catch {
+    return finishWithMp3(ctx, id, track, imageKey);
+  }
 
-  row.status = 'SUCCESS';
-  row.r2_key = r2Key;
-  row.image_key = imageKey;
-  row.tags = tags ?? '';
-  row.duration = duration;
-  row.suno_id = sunoId;
-  row.error = null;
-  return c(ctx).json({ status: 'SUCCESS', song: toSongRow(row) });
+  await ctx.env.DB.prepare(
+    `UPDATE songs SET wav_task_id = ?, image_key = ?, tags = ?, duration = ?, suno_id = ? WHERE id = ?`,
+  ).bind(wavTaskId, imageKey, tags ?? '', duration, sunoId, id).run();
+
+  return c(ctx).json({ status: 'PENDING' });
 }
 
 /** GET /api/songs — all rows newest-first. */

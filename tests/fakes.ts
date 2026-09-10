@@ -104,7 +104,22 @@ const makeDb = (rows: Row[] = []) => {
                 Object.assign(find(id)!, { suno_id });
                 return { success: true };
               }
-              // SUCCESS update: (r2Key, imageKey, tags, duration, [sunoId,] id)
+              // WAV kickoff: SET wav_task_id = ?, image_key = ?, tags = ?, duration = ?, suno_id = ? WHERE id = ?
+              // — track resolved, WAV conversion started, still PENDING (no status/r2_key touched)
+              if (S.includes('WAV_TASK_ID = ?')) {
+                const [wav_task_id, image_key, tags, duration, suno_id, id] =
+                  args as [string, string | null, string | null, number | null, string, string];
+                Object.assign(find(id)!, { wav_task_id, image_key, tags, duration, suno_id });
+                return { success: true };
+              }
+              // WAV conversion done: SET status = 'SUCCESS', r2_key = ?, error = NULL WHERE id = ?
+              // — everything else (image_key/tags/duration/suno_id) was already written at kickoff
+              if (S.includes("SET STATUS = 'SUCCESS'") && !S.includes('IMAGE_KEY')) {
+                const [r2_key, id] = args as [string, string];
+                Object.assign(find(id)!, { status: 'SUCCESS', r2_key, error: null });
+                return { success: true };
+              }
+              // mp3 fallback SUCCESS update: (r2Key, imageKey, tags, duration, [sunoId,] id)
               // suno_id เข้ามาใน UPDATE ตอน Task 4 — อ่านจาก SQL ไม่ใช่จำนวน args
               const hasSunoId = S.includes('SUNO_ID = ?');
               const [r2_key, image_key, tags, duration] =

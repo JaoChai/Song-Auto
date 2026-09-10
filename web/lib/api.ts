@@ -61,6 +61,9 @@ export const songAudioUrl = (s: Song): string | null => r2Url(s.r2Key);
 
 export const songCoverUrl = (s: Song): string | null => r2Url(s.imageKey);
 
+/** นามสกุลไฟล์เสียงจริงของเพลงนี้ — ใช้ตั้งชื่อไฟล์ตอนดาวน์โหลด (เพลงทุกเพลงเป็น wav ยกเว้น fallback ตอนแปลง WAV ไม่สำเร็จ) */
+export const songFileExt = (s: Song): string => (s.r2Key?.endsWith('.mp3') ? 'mp3' : 'wav');
+
 export const fmtDuration = (sec: number | null): string => {
   if (sec === null || Number.isNaN(sec)) return '--:--';
   const m = Math.floor(sec / 60);

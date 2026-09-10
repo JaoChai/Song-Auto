@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react';
-import { fmtDuration, songAudioUrl, type Song } from '../lib/api';
+import { fmtDuration, songAudioUrl, songFileExt, type Song } from '../lib/api';
 import { CoverArt } from './CoverArt';
 import { DownloadIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, VolumeIcon } from './icons';
 
@@ -139,7 +139,12 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
             />
           </div>
           {audioUrl ? (
-            <a href={audioUrl} download={`${song?.title || 'song'}.mp3`} className="icon-btn" aria-label="ดาวน์โหลดเพลงนี้">
+            <a
+              href={audioUrl}
+              download={`${song?.title || 'song'}.${song ? songFileExt(song) : 'wav'}`}
+              className="icon-btn"
+              aria-label="ดาวน์โหลดเพลงนี้"
+            >
               <DownloadIcon className="h-4 w-4" />
             </a>
           ) : (

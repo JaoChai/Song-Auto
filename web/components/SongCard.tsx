@@ -1,4 +1,4 @@
-import { fmtDuration, songAudioUrl, type Song } from '../lib/api';
+import { fmtDuration, songAudioUrl, songFileExt, type Song } from '../lib/api';
 import { CoverArt } from './CoverArt';
 import { DownloadIcon, PauseIcon, PlayIcon, SpinnerIcon } from './icons';
 
@@ -81,7 +81,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
         {audioUrl && (
           <a
             href={audioUrl}
-            download={`${song.title || 'song'}.mp3`}
+            download={`${song.title || 'song'}.${songFileExt(song)}`}
             onClick={(e) => e.stopPropagation()}
             aria-label={`ดาวน์โหลด ${song.title || 'Untitled'}`}
             className="icon-btn absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
