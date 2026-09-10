@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateGenerate, kieGenerate, kiePollTask, kieCreatePersona, type GenerateInput } from '../src/worker/kie';
+import {
+  validateGenerate, kieGenerate, kiePollTask, kieCreatePersona,
+  validateExtend, kieExtend, type GenerateInput, type ExtendInput,
+} from '../src/worker/kie';
 import type { Env } from '../src/worker/types';
 
 const env: Env = { DB: {} as any, AUDIO: {} as any, KIE_API_KEY: 'test-key', APP_PASSWORD: 'pw' };
@@ -360,5 +363,165 @@ describe('kieCreatePersona', () => {
   it('throws on a network error', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')));
     await expect(kieCreatePersona(env, input)).rejects.toThrow(/ECONNRESET/);
+  });
+});
+
+const baseExtend: ExtendInput = {
+  audioId: 'a1', model: 'V5', defaultParamFlag: false,
+};
+
+describe('validateExtend', () => {
+  it('โหมดใช้ค่าเดิมต้องการแค่ audioId กับ model', () => {
+    expect(validateExtend(baseExtend)).toBeNull();
+  });
+
+  it('ปฏิเสธเมื่อไม่มี audioId', () => {
+    expect(validateExtend({ ...baseExtend, audioId: '' })).toMatch(/audioId/i);
+  });
+
+  it('ปฏิเสธโมเดลที่ไม่รู้จัก', () => {
+    expect(validateExtend({ ...baseExtend, model: 'V9' })).toMatch(/model/i);
+  });
+
+  it('โหมดปรับเองต้องมี continueAt, style, title ครบ', () => {
+    const custom: ExtendInput = {
+      ...baseExtend, defaultParamFlag: true, prompt: 'ต่อให้เบาลง', style: 'dream pop', title: 'ต่อ',
+    };
+    expect(validateExtend(custom)).toMatch(/continueAt/i);
+    expect(validateExtend({ ...custom, continueAt: 30, style: '' })).toMatch(/style/i);
+    expect(validateExtend({ ...custom, continueAt: 30, title: '' })).toMatch(/title/i);
+    expect(validateExtend({ ...custom, continueAt: 30 })).toBeNull();
+  });
+
+  it('โหมดปรับเองที่ไม่ใช่ instrumental ต้องมี prompt', () => {
+    const custom: ExtendInput = {
+      ...baseExtend, defaultParamFlag: true, continueAt: 30, style: 's', title: 't',
+    };
+    expect(validateExtend(custom)).toMatch(/prompt/i);
+    expect(validateExtend({ ...custom, instrumental: true })).toBeNull();
+  });
+
+  it('ปฏิเสธ continueAt ที่เป็น 0 หรือติดลบ', () => {
+    const custom: ExtendInput = {
+      ...baseExtend, defaultParamFlag: true, prompt: 'p', style: 's', title: 't',
+    };
+    expect(validateExtend({ ...custom, continueAt: 0 })).toMatch(/continueAt/i);
+    expect(validateExtend({ ...custom, continueAt: -5 })).toMatch(/continueAt/i);
+  });
+
+  it('ปฏิเสธ continueAt ที่เกินความยาวเพลงต้นทาง', () => {
+    const custom: ExtendInput = {
+      ...baseExtend, defaultParamFlag: true, prompt: 'p', style: 's', title: 't',
+      sourceDuration: 60,
+    };
+    expect(validateExtend({ ...custom, continueAt: 60 })).toMatch(/continueAt/i);
+    expect(validateExtend({ ...custom, continueAt: 59.9 })).toBeNull();
+  });
+
+  it('ปฏิเสธ prompt ที่ยาวเกินขีดจำกัดของโมเดล', () => {
+    const custom: ExtendInput = {
+      ...baseExtend, defaultParamFlag: true, continueAt: 10, style: 's', title: 't',
+      prompt: 'x'.repeat(5001),
+    };
+    expect(validateExtend(custom)).toMatch(/5000/);
+  });
+
+  it('ปฏิเสธ personaId ที่มาไม่ครบคู่กับ personaModel', () => {
+    expect(validateExtend({ ...baseExtend, personaId: 'p1' })).toMatch(/personaModel/i);
+    expect(validateExtend({ ...baseExtend, personaModel: 'style_persona' })).toMatch(/personaModel/i);
+  });
+
+  it('ปฏิเสธ persona กับโมเดลที่ต่ำกว่า V5', () => {
+    const withPersona = { ...baseExtend, personaId: 'p1', personaModel: 'style_persona' };
+    expect(validateExtend({ ...withPersona, model: 'V4_5' })).toMatch(/V5/);
+    expect(validateExtend({ ...withPersona, model: 'V5' })).toBeNull();
+  });
+});
+
+describe('kieExtend', () => {
+  const okFetch = () =>
+    vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 'ext-1' } }),
+    });
+
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('ยิงไป /api/v1/generate/extend พร้อม Bearer และคืน taskId', async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const taskId = await kieExtend(env, baseExtend);
+    expect(taskId).toBe('ext-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.kie.ai/api/v1/generate/extend');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('Bearer test-key');
+  });
+
+  it('โหมดใช้ค่าเดิมส่งแค่ audioId, model, defaultParamFlag, callBackUrl', async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await kieExtend(env, baseExtend);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.audioId).toBe('a1');
+    expect(body.model).toBe('V5');
+    expect(body.defaultParamFlag).toBe(false);
+    expect(body.callBackUrl).toBeTruthy();
+    expect(body.continueAt).toBeUndefined();
+    expect(body.prompt).toBeUndefined();
+    expect(body.style).toBeUndefined();
+    expect(body.title).toBeUndefined();
+  });
+
+  it('โหมดปรับเองส่ง continueAt, prompt, style, title', async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await kieExtend(env, {
+      ...baseExtend, defaultParamFlag: true, continueAt: 42.5,
+      prompt: 'ต่อให้เบาลง', style: 'dream pop', title: 'ต่อจากสายฝน',
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.defaultParamFlag).toBe(true);
+    expect(body.continueAt).toBe(42.5);
+    expect(body.prompt).toBe('ต่อให้เบาลง');
+    expect(body.style).toBe('dream pop');
+    expect(body.title).toBe('ต่อจากสายฝน');
+  });
+
+  it('ไม่ส่ง sourceDuration ต่อไปให้ kie', async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await kieExtend(env, { ...baseExtend, sourceDuration: 120 });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.sourceDuration).toBeUndefined();
+  });
+
+  it('โยนเมื่อ input ไม่ผ่าน validate โดยไม่ยิง fetch', async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(kieExtend(env, { ...baseExtend, audioId: '' })).rejects.toThrow(/audioId/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('โยนเมื่อ envelope code ไม่ใช่ 200', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 402, msg: 'Insufficient Credits' }),
+    }));
+    await expect(kieExtend(env, baseExtend)).rejects.toThrow(/402|Insufficient/);
+  });
+
+  it('โยนเมื่อไม่มี data.taskId', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: {} }),
+    }));
+    await expect(kieExtend(env, baseExtend)).rejects.toThrow(/taskId/);
+  });
+
+  it('โยนพร้อมบอกว่าเป็น network error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
+    await expect(kieExtend(env, baseExtend)).rejects.toThrow(/network/i);
   });
 });

@@ -1,8 +1,11 @@
 import type { Env } from './types';
 
 const BASE_URL = 'https://api.kie.ai';
+// kie.ai requires callBackUrl (422 without it) even though we poll record-info instead
+const CALLBACK_URL = 'https://song-auto.anugooltippon.workers.dev/api/health';
 const KIE_MODELS = ['V3_5', 'V4', 'V4_5', 'V4_5PLUS', 'V4_5ALL', 'V5'] as const;
 const PERSONA_MODELS = ['style_persona', 'voice_persona'] as const;
+const PERSONA_CAPABLE_MODELS = ['V5'] as const;
 
 const PROMPT_LIMIT_SIMPLE = 3000;
 const PROMPT_LIMIT_CUSTOM = 5000;
@@ -32,6 +35,17 @@ const KIE_FAILED_STATUSES = [
 const promptIsOptional = (input: GenerateInput): boolean =>
   Boolean(input.style || input.title) && input.instrumental;
 
+// persona ใช้ได้เฉพาะเมื่อมาครบคู่ — kie ต้องรู้ทั้ง id และโหมดที่จะใช้มัน
+const checkPersonaPair = (personaId?: string, personaModel?: string): string | null => {
+  if (Boolean(personaId) !== Boolean(personaModel)) {
+    return 'personaId and personaModel must be given together';
+  }
+  if (personaModel && !(PERSONA_MODELS as readonly string[]).includes(personaModel)) {
+    return `unsupported personaModel '${personaModel}' (expected one of ${PERSONA_MODELS.join(', ')})`;
+  }
+  return null;
+};
+
 export function validateGenerate(input: GenerateInput): string | null {
   if (!promptIsOptional(input) && (!input.prompt || !input.prompt.trim())) return 'prompt is required';
   const custom = Boolean(input.style || input.title);
@@ -48,14 +62,7 @@ export function validateGenerate(input: GenerateInput): string | null {
   if (!(KIE_MODELS as readonly string[]).includes(input.model)) {
     return `unsupported model '${input.model}' (expected one of ${KIE_MODELS.join(', ')})`;
   }
-  // persona ใช้ได้เฉพาะเมื่อมาครบคู่ — kie ต้องรู้ทั้ง id และโหมดที่จะใช้มัน
-  if (Boolean(input.personaId) !== Boolean(input.personaModel)) {
-    return 'personaId and personaModel must be given together';
-  }
-  if (input.personaModel && !(PERSONA_MODELS as readonly string[]).includes(input.personaModel)) {
-    return `unsupported personaModel '${input.personaModel}' (expected one of ${PERSONA_MODELS.join(', ')})`;
-  }
-  return null;
+  return checkPersonaPair(input.personaId, input.personaModel);
 }
 
 const authHeaders = (env: Env): Record<string, string> => ({
@@ -73,8 +80,7 @@ export async function kieGenerate(env: Env, input: GenerateInput): Promise<strin
     customMode: custom,
     instrumental: input.instrumental,
     model: input.model,
-    // kie.ai requires callBackUrl (422 without it) even though we poll record-info instead
-    callBackUrl: 'https://song-auto.anugooltippon.workers.dev/api/health',
+    callBackUrl: CALLBACK_URL,
   };
   if (!promptIsOptional(input)) body.prompt = input.prompt;
   if (custom) {
@@ -209,4 +215,110 @@ export async function kieCreatePersona(env: Env, input: CreatePersonaInput): Pro
   const personaId = envelope.data?.personaId;
   if (!personaId) throw new Error('kie persona: response missing data.personaId');
   return personaId;
+}
+
+export interface ExtendInput {
+  audioId: string;
+  model: string;
+  defaultParamFlag: boolean;
+  /** ความยาวเพลงต้นทาง (วินาที) ใช้ตรวจว่า continueAt ไม่เลยท้ายเพลง */
+  sourceDuration?: number | null;
+  continueAt?: number;
+  prompt?: string;
+  style?: string;
+  title?: string;
+  negativeTags?: string;
+  personaId?: string;
+  personaModel?: string;
+  instrumental?: boolean;
+}
+
+export function validateExtend(input: ExtendInput): string | null {
+  if (!input.audioId || !input.audioId.trim()) return 'audioId is required';
+  if (!(KIE_MODELS as readonly string[]).includes(input.model)) {
+    return `unsupported model '${input.model}' (expected one of ${KIE_MODELS.join(', ')})`;
+  }
+
+  if (input.defaultParamFlag) {
+    const at = input.continueAt;
+    if (typeof at !== 'number' || Number.isNaN(at) || at <= 0) {
+      return 'continueAt is required and must be greater than 0 in custom mode';
+    }
+    if (typeof input.sourceDuration === 'number' && at >= input.sourceDuration) {
+      return `continueAt must be less than the source duration (${input.sourceDuration}s)`;
+    }
+    if (!input.style || !input.style.trim()) return 'style is required in custom mode';
+    if (!input.title || !input.title.trim()) return 'title is required in custom mode';
+    if (!input.instrumental && (!input.prompt || !input.prompt.trim())) {
+      return 'prompt is required in custom mode unless instrumental';
+    }
+  }
+
+  // ขีดจำกัดตัวอักษร — ตรวจเสมอ แม้ค่าเหล่านี้จะถูกส่งจริงเฉพาะเมื่อ defaultParamFlag = true
+  if (input.prompt && input.prompt.length > PROMPT_LIMIT_CUSTOM) {
+    return `prompt exceeds ${PROMPT_LIMIT_CUSTOM} characters`;
+  }
+  if (input.style && input.style.length > STYLE_LIMIT) {
+    return `style exceeds ${STYLE_LIMIT} characters`;
+  }
+  if (input.title && input.title.length > TITLE_LIMIT) {
+    return `title exceeds ${TITLE_LIMIT} characters`;
+  }
+
+  const personaError = checkPersonaPair(input.personaId, input.personaModel);
+  if (personaError) return personaError;
+  if (input.personaModel && !(PERSONA_CAPABLE_MODELS as readonly string[]).includes(input.model)) {
+    return `persona requires model V5 (got '${input.model}')`;
+  }
+  return null;
+}
+
+/** POST /api/v1/generate/extend — returns the kie taskId. Throws on any failure. */
+export async function kieExtend(env: Env, input: ExtendInput): Promise<string> {
+  const validation = validateExtend(input);
+  if (validation) throw new Error(validation);
+
+  const body: Record<string, unknown> = {
+    audioId: input.audioId,
+    model: input.model,
+    defaultParamFlag: input.defaultParamFlag,
+    // kie บังคับให้มี callBackUrl เหมือน generate ทั้งที่เราใช้วิธี poll
+    callBackUrl: CALLBACK_URL,
+  };
+  if (input.defaultParamFlag) {
+    body.continueAt = input.continueAt;
+    body.style = input.style;
+    body.title = input.title;
+    if (!input.instrumental) body.prompt = input.prompt;
+  }
+  if (typeof input.instrumental === 'boolean') body.instrumental = input.instrumental;
+  if (input.negativeTags) body.negativeTags = input.negativeTags;
+  if (input.personaId && input.personaModel) {
+    body.personaId = input.personaId;
+    body.personaModel = input.personaModel;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/api/v1/generate/extend`, {
+      method: 'POST',
+      headers: authHeaders(env),
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw new Error(`kie extend network error: ${(err as Error).message}`);
+  }
+
+  let envelope: { code: number; msg: string; data?: { taskId?: string } };
+  try {
+    envelope = await res.json();
+  } catch {
+    throw new Error(`kie extend: invalid JSON response (HTTP ${res.status})`);
+  }
+  if (envelope.code !== 200) {
+    throw new Error(`kie extend failed (code ${envelope.code}): ${envelope.msg}`);
+  }
+  const taskId = envelope.data?.taskId;
+  if (!taskId) throw new Error('kie extend: response missing data.taskId');
+  return taskId;
 }
