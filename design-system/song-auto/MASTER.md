@@ -8,8 +8,9 @@
 
 **Project:** Song-Auto
 **Generated:** 2026-08-26 12:06:46
+**Updated:** 2026-09-10 — จานสี ตัวอักษร และ Page Pattern ปรับให้ตรงกับที่ทางซ้ายไปขวาจริง
 **Category:** Music Streaming
-**Design Dials:** Variance 3/10 (Centered / Minimal) | Motion 4/10 (Standard) | Density 5/10 (Standard)
+**Design Dials:** Variance 6/10 (Expressive) | Motion 4/10 (Standard) | Density 5/10 (Standard)
 
 ---
 
@@ -17,32 +18,46 @@
 
 ### Color Palette
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#1E1B4B` | `--color-primary` |
-| On Primary | `#FFFFFF` | `--color-on-primary` |
-| Secondary | `#4338CA` | `--color-secondary` |
-| Accent/CTA | `#22C55E` | `--color-accent` |
-| Background | `#0F0F23` | `--color-background` |
-| Foreground | `#F8FAFC` | `--color-foreground` |
-| Muted | `#27273B` | `--color-muted` |
-| Border | `#312E81` | `--color-border` |
-| Destructive | `#EF4444` | `--color-destructive` |
-| Ring | `#1E1B4B` | `--color-ring` |
+พื้นสว่างอมม่วง — ม่วงคือการกระทำของระบบ ชมพูสงวนไว้เฉพาะสิ่งที่ AI แต่งขึ้นให้
+(เนื้อเพลงจาก `/api/lyrics`, persona) ทุกคู่ที่ใช้กับตัวหนังสือผ่าน WCAG AA (>= 4.5:1)
 
-**Color Notes:** Dark audio + play green
+| Role | Hex | CSS Variable | คอนทราสต์ |
+|------|-----|--------------|-----------|
+| Ground | `#FAF7FF` | `--ground` | — |
+| Surface | `#FFFFFF` | `--surface` | — |
+| Surface 2 | `#F3EDFD` | `--surface-2` | — |
+| Ink (หลัก) | `#17122B` | `--ink` | 17.11 บนพื้น |
+| Ink 2 (รอง) | `#4A4363` | `--ink-2` | 8.71 บนพื้น |
+| Ink 3 (จางสุด) | `#6E6690` | `--ink-3` | 5.00 บนพื้น · 5.29 บนการ์ด |
+| Grape (สีหลัก) | `#6D28D9` | `--grape` | 6.70 บนพื้น · ขาวบนปุ่ม 7.10 |
+| Pink (เฉพาะของ AI แต่ง) | `#BE185D` | `--pink` | 5.70 บนพื้น · ขาวบนสี 6.04 |
+| Line | `#E7DCFB` | `--line` | — |
+| Destructive | `#DC2626` | `--danger` | 4.56 บนพื้น |
+| Success | `#047857` | `--ok` | 5.17 บนพื้น |
+
+**Color Notes:** พื้นสว่าง ปกเพลงเป็นตัวเดินสี chrome อยู่เงียบ ๆ · ของเดิม (ดำ+เขียว) มี
+`--text-3: #7c7c85` บน surface ได้แค่ 4.37 ซึ่งตกเกณฑ์ AA — เปลี่ยนจานสีทั้งชุดแก้ปัญหานี้ไปด้วย
+โหมดมืดออกแบบ token ไว้ครบแล้วใน `web/index.css` แต่ยังไม่ต่อปุ่มสลับ
 
 ### Typography
 
-- **Heading Font:** Inter
-- **Body Font:** Inter
-- **Mood:** dark, cinematic, technical, precision, clean, premium, developer, professional, high-end utility
-- **Google Fonts:** [Inter + Inter](https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap)
+- **Heading Font:** Chakra Petch — มีอักขระไทย เหลี่ยมนิด ๆ แบบเครื่องเสียง ใช้เฉพาะหัวเรื่อง/ชื่อเพลง
+- **Body Font:** Anuphan — มีอักขระไทย ตัวแปรน้ำหนัก 100–700 อ่านง่ายที่ขนาดเล็ก
+- **Mono:** JetBrains Mono — ตัวเลข ระยะเวลา รหัส
+- **Mood:** สดใส เข้าถึงง่าย ทันสมัย อบอุ่นกว่าธีมมืดเดิม
+- **Google Fonts:** [Chakra Petch + Anuphan + JetBrains Mono](https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Anuphan:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap)
 
 **CSS Import:**
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Anuphan:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 ```
+
+**กติกาสำหรับภาษาไทย** (เหตุผลที่ของเดิมพัง — โหลดแค่ Inter ที่ไม่มีอักขระไทย ข้อความไทยทุกบรรทัด
+จึงตกไปใช้ฟอนต์ระบบที่น้ำหนัก/ความสูงไม่เข้ากับฟอนต์อังกฤษ):
+
+- `line-height` ของเนื้อความไม่ต่ำกว่า 1.75 — สระบนกับวรรณยุกต์ซ้อนกันสองชั้น ค่า 1.5 แบบอังกฤษทำให้ชนบรรทัดบน
+- ไม่ใช้ขนาดต่ำกว่า 13px กับข้อความไทย
+- ห้าม `text-align: justify` — ไทยไม่มีช่องว่างระหว่างคำ การยืดบรรทัดจะฉีกคำ
 
 ### Spacing Variables
 
@@ -74,31 +89,39 @@
 ### Buttons
 
 ```css
-/* Primary Button */
+/* Primary Button — ม่วง, ตัวขาว */
 .btn-primary {
-  background: #22C55E;
-  color: white;
+  background: var(--grape);
+  color: #ffffff;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 14px;
   font-weight: 600;
-  transition: all 200ms ease;
+  transition: filter 150ms ease, transform 150ms ease;
   cursor: pointer;
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  filter: brightness(1.08);
 }
 
-/* Secondary Button */
-.btn-secondary {
-  background: transparent;
-  color: #1E1B4B;
-  border: 2px solid #1E1B4B;
-  padding: 12px 24px;
-  border-radius: 8px;
+/* Assist Button — ชมพู, เฉพาะสิ่งที่ AI แต่งให้ (เนื้อเพลง, persona) */
+.btn-assist {
+  background: var(--pink);
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 10px;
   font-weight: 600;
-  transition: all 200ms ease;
+  cursor: pointer;
+}
+
+/* Outline Button — ใช้กับปุ่มบนแผงรายละเอียด (ต่อเพลง / ทำ persona) */
+.btn-outline {
+  background: var(--surface);
+  color: var(--grape-text);
+  border: 1px solid var(--line-strong);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
   cursor: pointer;
 }
 ```
@@ -107,16 +130,17 @@
 
 ```css
 .card {
-  background: #0F0F23;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
   padding: 24px;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 1px 2px rgba(23, 18, 43, 0.05);
   transition: all 200ms ease;
   cursor: pointer;
 }
 
 .card:hover {
-  box-shadow: var(--shadow-lg);
+  border-color: var(--line-strong);
   transform: translateY(-2px);
 }
 ```
@@ -126,16 +150,17 @@
 ```css
 .input {
   padding: 12px 16px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
   font-size: 16px;
+  color: var(--ink);
   transition: border-color 200ms ease;
 }
 
 .input:focus {
-  border-color: #1E1B4B;
+  border-color: var(--grape);
   outline: none;
-  box-shadow: 0 0 0 3px #1E1B4B20;
+  box-shadow: 0 0 0 3px var(--grape-soft);
 }
 ```
 
@@ -171,12 +196,19 @@
 
 ### Page Pattern
 
-**Pattern Name:** Library First
+**Pattern Name:** Create Left, Library Right
 
-- **Structure:** sticky header (wordmark · search · create) → scrolling cover grid → sticky player bar
-- **Creation flow:** slide-over panel from the right (desktop) / bottom sheet (mobile)
-- **Grid:** 2 columns < 640px · 3 columns 640–1024px · 4 columns > 1024px, `max-w-6xl`
-- **Colour source:** cover artwork carries the colour; chrome stays neutral. `--accent` only on the primary button and the playing indicator.
+ทิศทางการไหลอ่านจากซ้ายไปขวา — ซ้ายคือสิ่งที่ป้อน ขวาคือสิ่งที่ได้กลับมา
+(ของเดิมเขียนไว้ว่าเป็น slide-over แต่โค้ดจริงทำเป็น sidebar ถาวรมาตลอด — รอบนี้แก้ให้เอกสารตรงของจริง)
+
+- **Structure:** sticky header (wordmark · search) → ① ราวซ้าย = ฟอร์มสร้าง (≥1024px คงอยู่ถาวร) →
+  ② คลังเป็น grid ทางขวา → sticky player bar ติดก้นจอ
+- **Detail layer:** ③ แผงรายละเอียดเพลง (เนื้อเพลง / ต่อเพลง / persona / สายพันธุ์) เลื่อนทับ grid
+  เข้ามาจากขอบขวา (≥1024px) หรือขึ้นจากด้านล่างเป็น bottom sheet (<1024px) — ไม่ไปแย่งที่ราวซ้าย
+  จึงไม่มีจังหวะที่โชว์สามคอลัมน์เต็มพร้อมกัน
+- **Grid:** 2 columns < 640px · 3 columns 640–1024px · 4 columns > 1024px
+- **Colour source:** cover artwork carries the colour; chrome stays neutral. `--grape` คือการกระทำ
+  ของระบบ (ปุ่มสร้าง แถบเล่นอยู่ โฟกัส) `--pink` สงวนไว้เฉพาะสิ่งที่ AI แต่งขึ้นให้
 
 ---
 
