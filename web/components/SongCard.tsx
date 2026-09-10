@@ -110,7 +110,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             onClick={(e) => e.stopPropagation()}
             aria-label={`ดาวน์โหลด ${song.title || 'Untitled'}`}
             className="icon-btn absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            style={{ background: 'rgba(23,18,43,0.62)', color: 'var(--ink)' }}
+            style={{ background: 'rgba(23,18,43,0.62)', color: '#ffffff' }}
           >
             <DownloadIcon className="h-4 w-4" />
           </a>
@@ -128,7 +128,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             aria-label={`ทำ persona จาก ${song.title || 'Untitled'}`}
             aria-expanded={personaOpen}
             className="icon-btn absolute right-1.5 top-11 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            style={{ background: 'rgba(23,18,43,0.62)', color: 'var(--ink)' }}
+            style={{ background: 'rgba(23,18,43,0.62)', color: '#ffffff' }}
           >
             <PersonaIcon className="h-4 w-4" />
           </button>
