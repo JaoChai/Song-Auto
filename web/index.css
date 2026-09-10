@@ -336,7 +336,6 @@ textarea.input {
   .model-pick { grid-template-columns: minmax(0, 1fr); }
 }
 
-
 /* ปุ่มสร้างอยู่ก้นฟอร์มเสมอ */
 .form-footer {
   margin-top: auto;
