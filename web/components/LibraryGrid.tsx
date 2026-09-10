@@ -69,7 +69,7 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
     return (
       <div className="card flex h-72 flex-col items-center justify-center gap-2 border-dashed text-center" style={{ background: 'transparent' }}>
         <p className="font-medium">คลังเพลงว่างอยู่</p>
-        <p className="max-w-xs text-sm" style={{ color: 'var(--text-2)' }}>
+        <p className="max-w-xs text-sm" style={{ color: 'var(--ink-2)' }}>
           กรอกฟอร์มสร้างเพลงเพื่อเริ่มเพลงแรกของคุณ
         </p>
       </div>
@@ -79,7 +79,7 @@ export function LibraryGrid({ songs, loaded, query, activeSong, isPlaying, onPla
   if (visible.length === 0) {
     return (
       <div className="flex h-40 flex-col items-center justify-center gap-1 text-center">
-        <p className="text-sm" style={{ color: 'var(--text-2)' }}>
+        <p className="text-sm" style={{ color: 'var(--ink-2)' }}>
           ไม่พบเพลงที่ตรงกับ “{query}”
         </p>
       </div>

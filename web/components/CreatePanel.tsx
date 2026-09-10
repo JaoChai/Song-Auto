@@ -76,12 +76,12 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
   return (
     <form onSubmit={submit} className="flex min-h-full flex-col gap-6 p-6">
       {/* Instrumental */}
-      <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--text-2)' }}>
+      <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--ink-2)' }}>
         <input
           type="checkbox"
           checked={instrumental}
           onChange={(e) => set('instrumental', e.target.checked)}
-          className="h-4 w-4 accent-[#22c55e]"
+          className="h-4 w-4 accent-[#6d28d9]"
         />
         Instrumental — ไม่มีคำร้อง
       </label>
@@ -91,7 +91,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         <div>
           <div className="mb-2 flex items-baseline justify-between">
             <label htmlFor="lyrics" className="field-label" style={{ marginBottom: 0 }}>Lyrics</label>
-            <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
+            <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
               {lyrics.length.toLocaleString()} / {LYRICS_MAX.toLocaleString()}
             </span>
           </div>
@@ -107,13 +107,13 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
         </div>
       )}
 
-      <div className="h-px shrink-0" style={{ background: 'var(--border)' }} />
+      <div className="h-px shrink-0" style={{ background: 'var(--line)' }} />
 
       {/* Style */}
       <div>
         <div className="mb-2 flex items-baseline justify-between">
           <label htmlFor="style" className="field-label" style={{ marginBottom: 0 }}>Style of music</label>
-          <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
             {style.length} / {STYLE_MAX}
           </span>
         </div>
@@ -131,7 +131,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
       <div>
         <div className="mb-2 flex items-baseline justify-between">
           <label htmlFor="title" className="field-label" style={{ marginBottom: 0 }}>Title</label>
-          <span className="text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
+          <span className="text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
             {title.length} / {TITLE_MAX}
           </span>
         </div>
@@ -170,12 +170,12 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
           </select>
 
           {personaId && (
-            <div className="mt-2 flex gap-4 text-sm" style={{ color: 'var(--text-2)' }}>
+            <div className="mt-2 flex gap-4 text-sm" style={{ color: 'var(--ink-2)' }}>
               <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="radio"
                   name="personaModel"
-                  className="accent-[#22c55e]"
+                  className="accent-[#6d28d9]"
                   checked={personaModel === 'style_persona'}
                   onChange={() => set('personaModel', 'style_persona')}
                 />
@@ -185,7 +185,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
                 <input
                   type="radio"
                   name="personaModel"
-                  className="accent-[#22c55e]"
+                  className="accent-[#6d28d9]"
                   checked={personaModel === 'voice_persona'}
                   onChange={() => set('personaModel', 'voice_persona')}
                 />
@@ -198,7 +198,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
 
       {/* Exclude styles — collapsed */}
       <details className="text-sm">
-        <summary className="cursor-pointer select-none list-none" style={{ color: 'var(--text-3)' }}>
+        <summary className="cursor-pointer select-none list-none" style={{ color: 'var(--ink-3)' }}>
           Exclude styles (optional)
         </summary>
         <input
@@ -212,7 +212,7 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
 
       {error && (
         <p role="alert" className="rounded-lg px-3 py-2 text-sm"
-          style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>
+          style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
           {error}
         </p>
       )}

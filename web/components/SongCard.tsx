@@ -67,8 +67,8 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
         }}
         className={`relative aspect-square overflow-hidden rounded-2xl ${playable ? 'cursor-pointer' : ''}`}
         style={{
-          color: 'var(--text-3)',
-          boxShadow: isActive ? '0 0 0 2px var(--accent)' : undefined,
+          color: 'var(--ink-3)',
+          boxShadow: isActive ? '0 0 0 2px var(--grape)' : undefined,
         }}
       >
         <CoverArt song={song} />
@@ -83,11 +83,11 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
         {playable && (
           <div
             className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            style={{ background: 'rgba(0,0,0,0.45)' }}
+            style={{ background: 'rgba(23,18,43,0.5)' }}
           >
             <span
               className="flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ background: 'var(--accent)', color: '#052e12' }}
+              style={{ background: 'var(--grape)', color: '#ffffff' }}
             >
               {isActive && isPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="ml-0.5 h-5 w-5" />}
             </span>
@@ -96,8 +96,8 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
 
         {pending && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <SpinnerIcon className="h-5 w-5 animate-spin" style={{ color: 'var(--text-2)' }} />
-            <span className="text-xs" style={{ color: 'var(--text-2)' }}>
+            <SpinnerIcon className="h-5 w-5 animate-spin" style={{ color: 'var(--ink-2)' }} />
+            <span className="text-xs" style={{ color: 'var(--ink-2)' }}>
               กำลังสร้าง · {elapsed(song.createdAt)}
             </span>
           </div>
@@ -110,7 +110,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             onClick={(e) => e.stopPropagation()}
             aria-label={`ดาวน์โหลด ${song.title || 'Untitled'}`}
             className="icon-btn absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--text)' }}
+            style={{ background: 'rgba(23,18,43,0.62)', color: 'var(--ink)' }}
           >
             <DownloadIcon className="h-4 w-4" />
           </a>
@@ -128,7 +128,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
             aria-label={`ทำ persona จาก ${song.title || 'Untitled'}`}
             aria-expanded={personaOpen}
             className="icon-btn absolute right-1.5 top-11 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--text)' }}
+            style={{ background: 'rgba(23,18,43,0.62)', color: 'var(--ink)' }}
           >
             <PersonaIcon className="h-4 w-4" />
           </button>
@@ -136,23 +136,23 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
       </div>
 
       <div className="min-w-0">
-        <h3 className="truncate text-sm font-medium" style={{ color: isActive ? 'var(--accent-text)' : undefined }}>
+        <h3 className="truncate text-sm font-medium" style={{ color: isActive ? 'var(--grape-text)' : undefined }}>
           {song.title || 'Untitled'}
         </h3>
-        <p className="mt-0.5 flex items-center gap-2 truncate text-xs" style={{ color: 'var(--text-3)' }}>
+        <p className="mt-0.5 flex items-center gap-2 truncate text-xs" style={{ color: 'var(--ink-3)' }}>
           <span className="truncate">{song.tags || song.style || '—'}</span>
           {success && <span className="tabular-nums">{fmtDuration(song.duration)}</span>}
         </p>
         {song.status === 'FAILED' && (
           <div className="mt-1 flex items-center gap-2">
-            <span className="truncate text-xs" style={{ color: '#f87171' }} title={song.error ?? ''}>
+            <span className="truncate text-xs" style={{ color: 'var(--danger)' }} title={song.error ?? ''}>
               {song.error || 'สร้างไม่สำเร็จ'}
             </span>
             <button
               type="button"
               onClick={() => onRetry(song)}
               className="shrink-0 cursor-pointer text-xs font-medium underline-offset-2 hover:underline"
-              style={{ color: 'var(--accent-text)' }}
+              style={{ color: 'var(--grape-text)' }}
             >
               ลองใหม่
             </button>
@@ -179,7 +179,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
               placeholder="แนวดนตรี อารมณ์ เครื่องดนตรี ลักษณะเสียงร้อง"
             />
             {personaError && (
-              <p role="alert" className="text-xs" style={{ color: '#f87171' }}>{personaError}</p>
+              <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>{personaError}</p>
             )}
             <div className="flex gap-2">
               <button
@@ -195,7 +195,7 @@ export function SongCard({ song, showVariant, isActive, isPlaying, onPlay, onRet
                 type="button"
                 onClick={() => { setPersonaOpen(false); setPersonaError(null); }}
                 className="cursor-pointer text-sm"
-                style={{ color: 'var(--text-3)' }}
+                style={{ color: 'var(--ink-3)' }}
               >
                 ยกเลิก
               </button>

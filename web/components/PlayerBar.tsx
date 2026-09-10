@@ -63,20 +63,20 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
   return (
     <footer
       className="sticky bottom-0 z-30 border-t"
-      style={{ background: 'rgba(13,13,15,0.9)', backdropFilter: 'blur(16px)', borderColor: 'var(--border)' }}
+      style={{ background: 'rgba(250,247,255,0.9)', backdropFilter: 'blur(16px)', borderColor: 'var(--line)' }}
       aria-label="เครื่องเล่นเพลง"
     >
       <div className="mx-auto flex h-[72px] max-w-6xl items-center gap-3 px-4 md:gap-4 md:px-6">
         {/* artwork + meta */}
         <div className="flex min-w-0 items-center gap-3" style={{ width: 220 }}>
-          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--ink-3)' }}>
             {song && <CoverArt key={song.id} song={song} />}
           </div>
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${song ? '' : 'opacity-35'}`}>
               {song?.title ?? 'ไม่มีเพลงที่เลือก'}
             </p>
-            <p className="truncate text-xs" style={{ color: 'var(--text-3)' }}>
+            <p className="truncate text-xs" style={{ color: 'var(--ink-3)' }}>
               {song?.tags || song?.style || '—'}
             </p>
           </div>
@@ -93,7 +93,7 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
             disabled={!song}
             aria-label={isPlaying ? 'หยุดชั่วคราว' : 'เล่น'}
             className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
-            style={{ background: 'var(--accent)', color: '#052e12' }}
+            style={{ background: 'var(--grape)', color: '#ffffff' }}
           >
             {isPlaying ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="ml-0.5 h-4 w-4" />}
           </button>
@@ -104,7 +104,7 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
 
         {/* seek */}
         <div className="hidden min-w-0 flex-1 items-center gap-3 sm:flex">
-          <span className="w-9 text-right text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
+          <span className="w-9 text-right text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
             {fmtDuration(current)}
           </span>
           <input
@@ -116,9 +116,9 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
             disabled={!song || !total}
             aria-label="ตำแหน่งเพลง"
             className={`${rangeTrack} w-full disabled:cursor-not-allowed [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3`}
-            style={{ background: `linear-gradient(to right,var(--accent) ${progress}%, var(--surface-hover) 0)` }}
+            style={{ background: `linear-gradient(to right,var(--grape) ${progress}%, var(--surface-hover) 0)` }}
           />
-          <span className="w-9 text-xs tabular-nums" style={{ color: 'var(--text-3)' }}>
+          <span className="w-9 text-xs tabular-nums" style={{ color: 'var(--ink-3)' }}>
             {fmtDuration(total || (song?.duration ?? null))}
           </span>
         </div>
@@ -135,7 +135,7 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
               onChange={changeVolume}
               aria-label="ระดับเสียง"
               className={`${rangeTrack} w-20 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5`}
-              style={{ background: `linear-gradient(to right,var(--text-2) ${volume}%, var(--surface-hover) 0)` }}
+              style={{ background: `linear-gradient(to right,var(--ink-2) ${volume}%, var(--surface-hover) 0)` }}
             />
           </div>
           {audioUrl ? (
@@ -152,7 +152,7 @@ export function PlayerBar({ song, isPlaying, audioRef, onPrev, onNext, hasPrev, 
 
       {/* mobile progress hairline */}
       <div className="h-0.5 w-full sm:hidden" style={{ background: 'var(--surface-hover)' }}>
-        <div className="h-full" style={{ width: `${progress}%`, background: 'var(--accent)' }} />
+        <div className="h-full" style={{ width: `${progress}%`, background: 'var(--grape)' }} />
       </div>
     </footer>
   );

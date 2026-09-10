@@ -26,7 +26,7 @@ export function AuthGate({ onAuthed }: { onAuthed: () => void }) {
       <form onSubmit={submit} className="card rise-in w-full max-w-sm p-8">
         {/* wordmark */}
         <h1 className="text-center text-xl font-semibold tracking-tight">Song-Auto</h1>
-        <p className="mt-1 mb-7 text-center text-sm" style={{ color: 'var(--text-2)' }}>
+        <p className="mt-1 mb-7 text-center text-sm" style={{ color: 'var(--ink-2)' }}>
           AI Music Studio
         </p>
 
@@ -43,7 +43,7 @@ export function AuthGate({ onAuthed }: { onAuthed: () => void }) {
           autoFocus
         />
         {error && (
-          <p className="mt-2 text-sm" role="alert" style={{ color: '#f87171' }}>
+          <p className="mt-2 text-sm" role="alert" style={{ color: 'var(--danger)' }}>
             {error}
           </p>
         )}
