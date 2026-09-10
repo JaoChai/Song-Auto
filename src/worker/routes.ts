@@ -295,3 +295,49 @@ export async function extendSong(ctx: Context<{ Bindings: Env }>) {
 
   return c(ctx).json({ songs: rows.map(toSongRow) }, 201);
 }
+
+/**
+ * POST /api/songs/backfill-suno-id — เติม suno_id ให้แถวเก่าที่สร้างก่อน migration 0003
+ * ยิง record-info ครั้งเดียวต่อหนึ่ง task แล้วจับคู่แทร็กตาม variant
+ * เรียกแบบมือครั้งเดียว ไม่มีปุ่มบนหน้าเว็บ
+ */
+export async function backfillSunoId(ctx: Context<{ Bindings: Env }>) {
+  const { results } = await ctx.env.DB
+    .prepare(`SELECT * FROM songs WHERE suno_id IS NULL AND status = 'SUCCESS'`)
+    .bind().all<Record<string, unknown>>();
+
+  const byTask = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of results) {
+    const taskId = row.task_id as string;
+    if (!taskId) continue;
+    const list = byTask.get(taskId) ?? [];
+    list.push(row);
+    byTask.set(taskId, list);
+  }
+
+  let filled = 0;
+  const skipped: Array<{ taskId: string; reason: string }> = [];
+
+  for (const [taskId, rows] of byTask) {
+    const poll = await kiePollTask(ctx.env, taskId);
+    if (poll.kind !== 'PENDING') {
+      skipped.push({
+        taskId,
+        reason: poll.kind === 'FAILED' ? poll.error : poll.note,
+      });
+      continue;
+    }
+    for (const row of rows) {
+      const track = poll.tracks[Number(row.variant ?? 1) - 1];
+      if (!track || !track.sunoId) {
+        skipped.push({ taskId, reason: `ไม่พบแทร็กลำดับที่ ${row.variant} ในงานนี้` });
+        continue;
+      }
+      await ctx.env.DB.prepare('UPDATE songs SET suno_id = ? WHERE id = ?')
+        .bind(track.sunoId, row.id as string).run();
+      filled++;
+    }
+  }
+
+  return c(ctx).json({ filled, skipped });
+}

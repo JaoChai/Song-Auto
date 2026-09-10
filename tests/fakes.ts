@@ -39,11 +39,18 @@ const makeDb = (rows: Row[] = []) => {
       const isFailedUpdate = S.includes("SET STATUS = 'FAILED'");
       const isPersonas = S.includes('PERSONAS');
       const isPersonaBySong = isPersonas && S.includes('SONG_ID = ?');
+      const isUnfilledSunoId = S.includes('SUNO_ID IS NULL') && S.includes("STATUS = 'SUCCESS'");
+
+      const selectAll = () => {
+        if (isPersonas) return personas.slice();
+        if (isUnfilledSunoId) return data.filter((r) => r.suno_id == null && r.status === 'SUCCESS');
+        return data.slice();
+      };
 
       return {
         bind(...args: unknown[]) {
           return {
-            all: async () => ({ results: isPersonas ? personas.slice() : data.slice() }),
+            all: async () => ({ results: selectAll() }),
             first: async () =>
               isPersonaBySong
                 ? personas.find((p) => p.song_id === (args[0] as string)) ?? null
@@ -90,6 +97,11 @@ const makeDb = (rows: Row[] = []) => {
               if (isFailedUpdate) {
                 const [error, id] = args as [string, string];
                 Object.assign(find(id)!, { status: 'FAILED', error });
+                return { success: true };
+              }
+              if (S.startsWith('UPDATE') && S.includes('SET SUNO_ID = ?') && !S.includes('STATUS')) {
+                const [suno_id, id] = args as [string, string];
+                Object.assign(find(id)!, { suno_id });
                 return { success: true };
               }
               // SUCCESS update: (r2Key, imageKey, tags, duration, [sunoId,] id)
