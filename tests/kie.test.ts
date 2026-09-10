@@ -865,6 +865,54 @@ describe('kieWavPoll', () => {
   });
 });
 
+describe('duration', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const custom: GenerateInput = {
+    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V6',
+  };
+
+  it('ยอมรับค่าที่ขอบและตรงกลางของช่วง', () => {
+    expect(validateGenerate({ ...custom, duration: 10 })).toBeNull();
+    expect(validateGenerate({ ...custom, duration: 180 })).toBeNull();
+    expect(validateGenerate({ ...custom, duration: 360 })).toBeNull();
+  });
+
+  it('ปฏิเสธค่านอกช่วงและค่าที่ไม่ใช่ตัวเลขจำกัด', () => {
+    expect(validateGenerate({ ...custom, duration: 9 })).toMatch(/duration/);
+    expect(validateGenerate({ ...custom, duration: 361 })).toMatch(/duration/);
+    expect(validateGenerate({ ...custom, duration: Number.NaN })).toMatch(/duration/);
+  });
+
+  it('ปฏิเสธ duration เมื่อไม่ใช่ custom mode', () => {
+    expect(validateGenerate({ prompt: 'a song', instrumental: false, model: 'V6', duration: 120 }))
+      .toMatch(/duration/);
+  });
+
+  it('ส่ง duration ขึ้น kie เมื่อระบุมา', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 't1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, { ...custom, duration: 150 });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.duration).toBe(150);
+  });
+
+  it('ไม่ใส่คีย์ duration เลยเมื่อไม่ได้ระบุ', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ code: 200, msg: 'success', data: { taskId: 't1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await kieGenerate(env, custom);
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect('duration' in body).toBe(false);
+  });
+});
+
 describe('ชุดโมเดล V6', () => {
   const custom: GenerateInput = {
     prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V6',
