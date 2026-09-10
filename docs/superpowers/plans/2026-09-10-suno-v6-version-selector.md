@@ -966,3 +966,18 @@ git commit -m "docs: record the measured duration behaviour on V6"
    `grep -rn "'V5'" src web --include='*.ts' --include='*.tsx'` แล้วต้องไม่เจออะไร
 4. สร้างเพลงจริงด้วย V6 ได้ครบทั้งขั้นตอนจนได้ไฟล์เสียง
 5. พฤติกรรมของ `duration` ถูกวัดและบันทึกไว้ในแผนแล้ว
+
+## ผลการวัดจริง (Task 9)
+
+วัดเมื่อ 2026-09-10 กับ kie.ai จริง ผ่าน `npm run dev` (D1 local) โมเดล `V6` custom mode
+เพลงบรรเลง สไตล์ `lo-fi chill hop, warm vinyl crackle, mellow piano`
+
+- ไม่ส่ง `duration` → ได้เพลงยาว **164 วินาที**
+  → `default: 20` ในสเปกของ kie **ไม่มีผลเมื่อไม่ส่งฟิลด์** ค่าว่างจึงเป็นค่าตั้งต้นที่ปลอดภัย
+  **ไม่ต้องทำ Step 4** — `EMPTY_DRAFT.duration` คงเป็น `''` ตามเดิม
+- ส่ง `duration: 150` → ได้เพลงยาว **150 วินาที** (ตรงเป๊ะ)
+- persona บน V6 → **ผ่าน** สร้าง persona จากเพลง V6 ได้ (`personaId` 93c9a495…) แล้วสร้างเพลงใหม่
+  ด้วย `personaModel: style_persona` + `audioWeight: 0.65` สำเร็จ ยาว 164.76 วินาที ไม่มี error
+  เรื่องโมเดล — ยืนยันว่าการลบข้อจำกัด `PERSONA_CAPABLE_MODELS = ['V5']` ใน Task 1 ถูกต้อง
+
+ทั้งสามเพลงไหลครบวงจร PENDING → SUCCESS ได้ไฟล์ `.wav` ใน R2
