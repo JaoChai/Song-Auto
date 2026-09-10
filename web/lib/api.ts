@@ -140,8 +140,17 @@ export const canPersona = (s: Song): boolean => finished(s) && s.model !== 'V3_5
  * ปุ่มต้องขึ้นแบบกดไม่ได้พร้อมข้อความนี้ ไม่ใช่หายไปเฉย ๆ อย่างที่เคยเป็น
  */
 export const personaBlockReason = (s: Song): string | null => {
+  if (s.status === 'FAILED') return 'เพลงนี้สร้างไม่สำเร็จ ทำ persona ไม่ได้';
   if (s.status !== 'SUCCESS') return 'รอเพลงสร้างเสร็จก่อน';
   if (!s.sunoId) return 'เพลงนี้สร้างก่อนระบบเก็บรหัสแทร็ก จึงทำ persona ไม่ได้';
   if (s.model === 'V3_5') return 'เพลงโมเดล V3_5 ทำ persona ไม่ได้';
+  return null;
+};
+
+/** เหตุผลที่ต่อเพลงไม่ได้ — คืน null ถ้าทำได้ */
+export const extendBlockReason = (s: Song): string | null => {
+  if (s.status === 'FAILED') return 'เพลงนี้สร้างไม่สำเร็จ ต่อเพลงไม่ได้';
+  if (s.status !== 'SUCCESS') return 'รอเพลงสร้างเสร็จก่อน';
+  if (!s.sunoId) return 'เพลงนี้สร้างก่อนระบบเก็บรหัสแทร็ก จึงต่อเพลงไม่ได้';
   return null;
 };

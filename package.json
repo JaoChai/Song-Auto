@@ -13,7 +13,7 @@
     "dev:worker": "wrangler dev",
     "dev:web": "vite",
     "build": "vite build",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler d1 migrations apply song-auto-db --remote && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

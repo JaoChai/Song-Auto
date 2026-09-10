@@ -96,24 +96,28 @@ export default function App() {
 
         {/* ② ขวา = สิ่งที่ได้กลับมา · ③ รายละเอียดทับเข้ามาจากขอบขวา */}
         <main className="library-main">
-          <LibraryGrid
-            songs={songs}
-            loaded={loaded}
-            query={query}
-            activeSong={active}
-            isPlaying={isPlaying}
-            onPlay={play}
-            upsert={upsert}
-            remove={remove}
-            onRetryFailed={setToast}
-            onOpenDetail={(s) => setDetailId(s.id)}
-          />
+          {/* เลื่อนแยกจากกล่องที่แผงรายละเอียดอิง — ไม่งั้นแผง (absolute) จะเลื่อนหายไปกับ grid ด้วย */}
+          <div className="library-scroll">
+            <LibraryGrid
+              songs={songs}
+              loaded={loaded}
+              query={query}
+              activeSong={active}
+              isPlaying={isPlaying}
+              onPlay={play}
+              upsert={upsert}
+              remove={remove}
+              onRetryFailed={setToast}
+              onOpenDetail={(s) => setDetailId(s.id)}
+            />
+          </div>
 
           {detail && (
             <>
               <div className="detail-scrim" onClick={() => setDetailId(null)} aria-hidden="true" />
               <div className="detail-layer rise-in">
                 <SongDetail
+                  key={detail.id}
                   song={detail}
                   parent={songs.find((s) => s.id === detail.parentSongId) ?? null}
                   personaName={personas.find((p) => p.songId === detail.id)?.name ?? null}

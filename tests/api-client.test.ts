@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  defaultPersonaWindow, canExtend, canPersona, personaBlockReason, type Song,
+  defaultPersonaWindow, canExtend, canPersona, extendBlockReason, personaBlockReason, type Song,
 } from '../web/lib/api';
 
 const song = (over: Partial<Song> = {}): Song => ({
@@ -62,5 +62,29 @@ describe('canPersona / personaBlockReason', () => {
 
   it('เพลงที่ยังสร้างไม่เสร็จ ทำไม่ได้', () => {
     expect(canPersona(song({ status: 'PENDING' }))).toBe(false);
+  });
+
+  it('เพลงที่สร้างไม่สำเร็จ ได้ข้อความเฉพาะ ไม่ใช่ "รอเพลงสร้างเสร็จก่อน"', () => {
+    const s = song({ status: 'FAILED' });
+    expect(canPersona(s)).toBe(false);
+    expect(personaBlockReason(s)).toContain('ไม่สำเร็จ');
+  });
+});
+
+describe('extendBlockReason', () => {
+  it('เพลงที่ต่อได้ ไม่มีเหตุผลขัดขวาง', () => {
+    expect(extendBlockReason(song())).toBeNull();
+  });
+
+  it('เพลงที่ไม่มี sunoId ต่อไม่ได้ พร้อมบอกเหตุผล', () => {
+    expect(extendBlockReason(song({ sunoId: null }))).toContain('รหัสแทร็ก');
+  });
+
+  it('เพลงที่สร้างไม่สำเร็จ ได้ข้อความเฉพาะ ไม่ใช่ "รอเพลงสร้างเสร็จก่อน"', () => {
+    expect(extendBlockReason(song({ status: 'FAILED' }))).toContain('ไม่สำเร็จ');
+  });
+
+  it('เพลงที่ยังสร้างไม่เสร็จ (PENDING) รอก่อน', () => {
+    expect(extendBlockReason(song({ status: 'PENDING' }))).toContain('รอ');
   });
 });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  canExtend, canPersona, defaultPersonaWindow, fmtDuration, personaBlockReason,
+  canExtend, canPersona, defaultPersonaWindow, extendBlockReason, fmtDuration, personaBlockReason,
   PERSONA_SEGMENT_MAX, PERSONA_SEGMENT_MIN, type Song,
 } from '../lib/api';
 import { CoverArt } from './CoverArt';
@@ -33,6 +33,7 @@ export function SongDetail({
 
   const blocked = personaBlockReason(song);
   const extensible = canExtend(song);
+  const extendBlocked = extendBlockReason(song);
   const alreadyMade = personaName !== null;
   const maxTime = typeof song.duration === 'number' ? song.duration : PERSONA_SEGMENT_MAX;
   const span = end - start;
@@ -91,7 +92,7 @@ export function SongDetail({
           type="button"
           className="btn-outline"
           disabled={!extensible}
-          title={extensible ? undefined : 'เพลงนี้สร้างก่อนระบบเก็บรหัสแทร็ก จึงต่อเพลงไม่ได้'}
+          title={extendBlocked ?? undefined}
           onClick={() => setOpen(open === 'extend' ? 'none' : 'extend')}
         >
           ต่อเพลง
