@@ -79,7 +79,7 @@ const stubFullFlow = (pollData: unknown, wavPollData: unknown, opts: { wavTaskId
 
 const wavSuccess = (audioWavUrl = 'https://cdn/1.wav') => ({ successFlag: 'SUCCESS', response: { audioWavUrl } });
 
-const baseInput = { prompt: 'a calm piano song', instrumental: true, model: 'V4_5' };
+const baseInput = { prompt: 'a calm piano song', instrumental: true, model: 'V6' };
 
 const rowFixture = (id: string, taskId: string, createdAt: string, variant = 1): Row => ({
   id, task_id: taskId, title: 't', prompt: 'p', style: 's', tags: '', model: 'V4_5',

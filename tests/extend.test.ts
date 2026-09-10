@@ -16,7 +16,7 @@ const cookieFor = async (env: Parameters<typeof app.request>[2]): Promise<string
 
 const songRow = (over: Record<string, unknown> = {}) => ({
   id: 's1', task_id: 'task-1', title: 'สายฝน', prompt: 'p', style: 'dream pop', tags: 'calm',
-  model: 'V4_5', instrumental: 0, status: 'SUCCESS' as const, error: null, r2_key: 's1.mp3',
+  model: 'V6', instrumental: 0, status: 'SUCCESS' as const, error: null, r2_key: 's1.mp3',
   image_key: null, duration: 100, created_at: '2026-09-09T00:00:00.000Z', variant: 1,
   suno_id: 'a1', parent_song_id: null, continue_at: null, ...over,
 });
@@ -54,7 +54,7 @@ describe('POST /api/songs/:id/extend', () => {
   });
 
   it('ใช้ model ของเพลงต้นทางเสมอ แม้ผู้เรียกจะส่งค่าอื่นมา', async () => {
-    const { env } = makeEnv([songRow({ model: 'V4_5' }) as never]);
+    const { env } = makeEnv([songRow({ model: 'V6_MINI' }) as never]);
     const cookie = await cookieFor(env);
     const fetchMock = okExtend();
     vi.stubGlobal('fetch', fetchMock);
@@ -66,7 +66,7 @@ describe('POST /api/songs/:id/extend', () => {
     }, env);
 
     const sent = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-    expect(sent.model).toBe('V4_5');
+    expect(sent.model).toBe('V6_MINI');
     expect(sent.audioId).toBe('a1');
   });
 
