@@ -40,7 +40,7 @@ const stubMp3Download = () =>
 /** Routes both the kie calls and the mp3 download to one mock, by URL. */
 const stubKieAndMp3 = (pollData: unknown) => {
   const mp3 = stubMp3Download();
-  const mock = vi.fn(async (url: string | URL) => {
+  const mock = vi.fn(async (url: string | URL, _init?: RequestInit) => {
     const u = String(url);
     if (u.includes('/api/v1/generate/record-info')) return stubKiePoll(pollData)() as unknown as Response;
     if (u.includes('/api/v1/generate')) return stubKieGenerate()() as unknown as Response;
