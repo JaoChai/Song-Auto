@@ -48,7 +48,12 @@ export function TuningSlider({
         <span className="tune-slider-value">
           <span className="tune-slider-pct">{isSet ? format(current) : 'อัตโนมัติ'}</span>
           {isSet && (
-            <button type="button" className="tune-slider-reset" onClick={() => onChange('')}>
+            <button
+              type="button"
+              className="tune-slider-reset"
+              aria-label={`ตั้ง${label}เป็นอัตโนมัติ`}
+              onClick={() => onChange('')}
+            >
               อัตโนมัติ
             </button>
           )}
