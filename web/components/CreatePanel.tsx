@@ -139,11 +139,12 @@ export function CreatePanel({ personas, personasLoaded, onCreated }: Props) {
             {style.length} / {STYLE_MAX}
           </span>
         </div>
-        <input
+        <textarea
           id="style"
           className="input"
           value={style}
           onChange={(e) => set('style', e.target.value)}
+          rows={3}
           maxLength={STYLE_MAX}
           placeholder="dream pop, ethereal, lush reverb"
         />
