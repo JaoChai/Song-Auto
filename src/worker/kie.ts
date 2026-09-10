@@ -3,9 +3,8 @@ import type { Env } from './types';
 const BASE_URL = 'https://api.kie.ai';
 // kie.ai requires callBackUrl (422 without it) even though we poll record-info instead
 const CALLBACK_URL = 'https://song-auto.anugooltippon.workers.dev/api/health';
-const KIE_MODELS = ['V3_5', 'V4', 'V4_5', 'V4_5PLUS', 'V4_5ALL', 'V5'] as const;
+const KIE_MODELS = ['V6', 'V6_WILD', 'V6_MINI'] as const;
 const PERSONA_MODELS = ['style_persona', 'voice_persona'] as const;
-const PERSONA_CAPABLE_MODELS = ['V5'] as const;
 
 const PROMPT_LIMIT_SIMPLE = 3000;
 const PROMPT_LIMIT_CUSTOM = 5000;
@@ -420,9 +419,6 @@ export function validateExtend(input: ExtendInput): string | null {
 
   const personaError = checkPersonaPair(input.personaId, input.personaModel);
   if (personaError) return personaError;
-  if (input.personaModel && !(PERSONA_CAPABLE_MODELS as readonly string[]).includes(input.model)) {
-    return `persona requires model V5 (got '${input.model}')`;
-  }
   return null;
 }
 
