@@ -42,6 +42,8 @@ export interface Song {
   createdAt: string;
   sunoId: string | null;
   variant: number;
+  parentSongId: string | null;
+  continueAt: number | null;
 }
 
 export interface Persona {
@@ -78,3 +80,68 @@ export interface GenerateBody {
   personaId?: string;
   personaModel?: 'style_persona' | 'voice_persona';
 }
+
+export const LYRICS_PROMPT_MAX = 200;
+export const PERSONA_SEGMENT_MIN = 10;
+export const PERSONA_SEGMENT_MAX = 30;
+
+export interface LyricsVariant {
+  title: string;
+  text: string;
+}
+
+export type LyricsPollResult =
+  | { status: 'PENDING'; transient?: boolean }
+  | { status: 'SUCCESS'; variants: LyricsVariant[] }
+  | { status: 'FAILED'; error: string };
+
+export interface ExtendBody {
+  defaultParamFlag: boolean;
+  continueAt?: number;
+  prompt?: string;
+  style?: string;
+  title?: string;
+  negativeTags?: string;
+  personaId?: string;
+  personaModel?: 'style_persona' | 'voice_persona';
+}
+
+export const extendSong = (songId: string, body: ExtendBody) =>
+  api<{ songs: Song[] }>(`/api/songs/${encodeURIComponent(songId)}/extend`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+
+export const startLyrics = (prompt: string) =>
+  api<{ taskId: string }>('/api/lyrics', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  });
+
+export const pollLyrics = (taskId: string) =>
+  api<LyricsPollResult>(`/api/lyrics/${encodeURIComponent(taskId)}`);
+
+/** ช่วงตั้งต้นที่ให้ kie วิเคราะห์เสียง — เพลงสั้นกว่า 30 วินาทีใช้ทั้งเพลง */
+export const defaultPersonaWindow = (duration: number | null): { start: number; end: number } => {
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) {
+    return { start: 0, end: PERSONA_SEGMENT_MAX };
+  }
+  return { start: 0, end: Math.min(PERSONA_SEGMENT_MAX, duration) };
+};
+
+const finished = (s: Song): boolean => s.status === 'SUCCESS' && Boolean(s.sunoId);
+
+export const canExtend = (s: Song): boolean => finished(s);
+
+export const canPersona = (s: Song): boolean => finished(s) && s.model !== 'V3_5';
+
+/**
+ * เหตุผลที่ทำ persona ไม่ได้ — คืน null ถ้าทำได้
+ * ปุ่มต้องขึ้นแบบกดไม่ได้พร้อมข้อความนี้ ไม่ใช่หายไปเฉย ๆ อย่างที่เคยเป็น
+ */
+export const personaBlockReason = (s: Song): string | null => {
+  if (s.status !== 'SUCCESS') return 'รอเพลงสร้างเสร็จก่อน';
+  if (!s.sunoId) return 'เพลงนี้สร้างก่อนระบบเก็บรหัสแทร็ก จึงทำ persona ไม่ได้';
+  if (s.model === 'V3_5') return 'เพลงโมเดล V3_5 ทำ persona ไม่ได้';
+  return null;
+};
