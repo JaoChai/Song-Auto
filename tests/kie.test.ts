@@ -9,7 +9,7 @@ import type { Env } from '../src/worker/types';
 
 const env: Env = { DB: {} as any, AUDIO: {} as any, KIE_API_KEY: 'test-key', APP_PASSWORD: 'pw' };
 
-const baseInput: GenerateInput = { prompt: 'a calm piano song', instrumental: true, model: 'V4_5' };
+const baseInput: GenerateInput = { prompt: 'a calm piano song', instrumental: true, model: 'V6' };
 
 // --- validateGenerate ---
 describe('validateGenerate', () => {
@@ -23,7 +23,7 @@ describe('validateGenerate', () => {
       style: 'y'.repeat(1000),
       title: 't'.repeat(80),
       instrumental: false,
-      model: 'V4_5',
+      model: 'V6',
     };
     expect(validateGenerate(custom)).toBeNull();
   });
@@ -83,7 +83,7 @@ describe('kieGenerate', () => {
     expect(body.customMode).toBe(true);
     expect(body.style).toBe('Folk');
     expect(body.title).toBe('Hi');
-    expect(body.model).toBe('V4_5');
+    expect(body.model).toBe('V6');
   });
 
   it('sends customMode false for simple input and no style/title', async () => {
@@ -250,7 +250,7 @@ describe('instrumental mode', () => {
   beforeEach(() => { vi.unstubAllGlobals(); });
   afterEach(() => { vi.unstubAllGlobals(); });
 
-  const base = { style: 'lo-fi', title: 'Rain', model: 'V5' };
+  const base = { style: 'lo-fi', title: 'Rain', model: 'V6' };
 
   it('accepts an empty prompt when instrumental in custom mode', () => {
     expect(validateGenerate({ ...base, prompt: '', instrumental: true })).toBeNull();
@@ -261,7 +261,7 @@ describe('instrumental mode', () => {
   });
 
   it('still rejects an empty prompt in simple mode even when instrumental', () => {
-    expect(validateGenerate({ prompt: '', instrumental: true, model: 'V5' })).toBe('prompt is required');
+    expect(validateGenerate({ prompt: '', instrumental: true, model: 'V6' })).toBe('prompt is required');
   });
 
   it('omits prompt from the request body for instrumental custom mode', async () => {
@@ -284,7 +284,7 @@ describe('persona in generate', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
   const custom: GenerateInput = {
-    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V5',
+    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V6',
   };
 
   it('accepts personaId + personaModel together', () => {
@@ -331,7 +331,7 @@ describe('vocal/style tuning in generate', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
   const custom: GenerateInput = {
-    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V5',
+    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V6',
   };
 
   it('accepts vocalGender m or f, rejects anything else', () => {
@@ -455,7 +455,7 @@ describe('validatePersonaSegment', () => {
 });
 
 const baseExtend: ExtendInput = {
-  audioId: 'a1', model: 'V5', defaultParamFlag: false,
+  audioId: 'a1', model: 'V6', defaultParamFlag: false,
 };
 
 describe('validateExtend', () => {
@@ -518,12 +518,6 @@ describe('validateExtend', () => {
     expect(validateExtend({ ...baseExtend, personaId: 'p1' })).toMatch(/personaModel/i);
     expect(validateExtend({ ...baseExtend, personaModel: 'style_persona' })).toMatch(/personaModel/i);
   });
-
-  it('ปฏิเสธ persona กับโมเดลที่ต่ำกว่า V5', () => {
-    const withPersona = { ...baseExtend, personaId: 'p1', personaModel: 'style_persona' };
-    expect(validateExtend({ ...withPersona, model: 'V4_5' })).toMatch(/V5/);
-    expect(validateExtend({ ...withPersona, model: 'V5' })).toBeNull();
-  });
 });
 
 describe('kieExtend', () => {
@@ -553,7 +547,7 @@ describe('kieExtend', () => {
     await kieExtend(env, baseExtend);
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.audioId).toBe('a1');
-    expect(body.model).toBe('V5');
+    expect(body.model).toBe('V6');
     expect(body.defaultParamFlag).toBe(false);
     expect(body.callBackUrl).toBeTruthy();
     expect(body.continueAt).toBeUndefined();
@@ -868,5 +862,35 @@ describe('kieWavPoll', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.kie.ai/api/v1/wav/record-info?taskId=wavtask-42');
     expect(init.headers.Authorization).toBe('Bearer test-key');
+  });
+});
+
+describe('ชุดโมเดล V6', () => {
+  const custom: GenerateInput = {
+    prompt: 'a calm piano song', style: 'lo-fi', title: 'Rain', instrumental: false, model: 'V6',
+  };
+
+  it('ยอมรับ V6, V6_WILD, V6_MINI', () => {
+    expect(validateGenerate({ ...custom, model: 'V6' })).toBeNull();
+    expect(validateGenerate({ ...custom, model: 'V6_WILD' })).toBeNull();
+    expect(validateGenerate({ ...custom, model: 'V6_MINI' })).toBeNull();
+  });
+
+  it('ปฏิเสธโมเดลที่ถูกปลดระวางแล้ว', () => {
+    expect(validateGenerate({ ...custom, model: 'V5' })).toMatch(/unsupported model/);
+    expect(validateGenerate({ ...custom, model: 'V4_5PLUS' })).toMatch(/unsupported model/);
+    expect(validateGenerate({ ...custom, model: 'V3_5' })).toMatch(/unsupported model/);
+  });
+
+  it('ยอมรับ persona บน V6 ทุกรุ่นตอนต่อเพลง', () => {
+    const withPersona = {
+      audioId: 'a1',
+      defaultParamFlag: false,
+      personaId: 'p1',
+      personaModel: 'style_persona',
+    };
+    expect(validateExtend({ ...withPersona, model: 'V6' })).toBeNull();
+    expect(validateExtend({ ...withPersona, model: 'V6_WILD' })).toBeNull();
+    expect(validateExtend({ ...withPersona, model: 'V6_MINI' })).toBeNull();
   });
 });
